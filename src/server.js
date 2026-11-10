@@ -7,7 +7,7 @@
 
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize, sep } from 'node:path';
+import { extname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
@@ -30,17 +30,30 @@ const TYPES = {
   '.woff2': 'font/woff2',
 };
 
+/**
+ * URL path -> file on disk, or null if it isn't one of the served folders.
+ * URL paths always use "/", so they're checked with posix rules on every OS
+ * (Windows' own path rules turn "/" into "\\", which broke the check).
+ */
+export function resolveRequest(urlPath) {
+  let path;
+  try { path = decodeURIComponent(urlPath); } catch { return null; }
+  if (path === '/' || path === '') path = '/src/renderer/index.html';
+  if (path.includes('\\') || path.includes('\0')) return null;
+  const rel = posix.normalize(path).replace(/^\/+/, '');
+  if (rel.startsWith('..') || rel.split('/').includes('..')) return null;
+  if (!ALLOWED.some((a) => rel.startsWith(a + '/'))) return null;
+  return join(ROOT, ...rel.split('/'));
+}
+
 export function startServer(port = 0, host = '127.0.0.1') {
   const server = createServer(async (req, res) => {
     try {
-      let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-      if (path === '/') path = '/src/renderer/index.html';
-      const rel = normalize(path).replace(/^[/\\]+/, '');
-      if (rel.includes('..') || !ALLOWED.some((a) => rel === a || rel.startsWith(a + '/') || rel.startsWith(a + sep))) {
+      const file = resolveRequest(new URL(req.url, 'http://x').pathname);
+      if (!file) {
         res.writeHead(404).end('not found');
         return;
       }
-      const file = join(ROOT, rel);
       const info = await stat(file);
       if (!info.isFile()) throw new Error('not a file');
       res.writeHead(200, {

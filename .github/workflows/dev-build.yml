@@ -39,6 +39,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |
           npm ci
+          npm test
           npm run model
           npm version "0.1.$GITHUB_RUN_NUMBER-dev" --no-git-tag-version --allow-same-version
           npx electron-builder --publish never --win portable -c.productName="Samia DEV" -c.appId=com.syncstanza.samia.dev '-c.portable.artifactName=Samia-DEV-${version}.exe'
