@@ -5,7 +5,7 @@
 //   ?demo=2:255-2:257   play these ayat through the tracker without a model
 //   ?start=2:142        set tonight's start point
 
-import { startCapture, listInputs } from './capture.js';
+import { startCapture, listInputs, micError } from './capture.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -115,8 +115,8 @@ worker.onmessage = ({ data: m }) => {
     if (params.has('demo')) return runDemo(params.get('demo'));
     const start = params.get('start') || store.get('start', null);
     if (start) setStart(start);
-    if (asrReady) listen();
-    else status('manual', 'Manual: no speech model');
+    listen(); // the mic meter works even without the model
+    if (!asrReady) status('manual', 'Manual: no speech model');
   } else if (m.type === 'update') {
     if (m.ayah && m.changed) render(m.ayah.index);
     if (m.heard !== undefined && m.heard) $('heard').textContent = m.heard;
@@ -138,16 +138,58 @@ worker.postMessage({
 });
 
 async function listen() {
-  if (capture) capture.stop();
+  if (capture) { capture.stop(); capture = null; }
+  const wanted = store.get('input', '');
   try {
-    capture = await startCapture({ deviceId: store.get('input', ''), cleanup: store.get('cleanup', false) }, (chunk) => {
-      worker.postMessage({ type: 'audio', samples: chunk }, [chunk.buffer]);
-    });
-    status('listening', 'Listening');
+    capture = await openMic(wanted);
   } catch (e) {
-    status('error', 'No microphone: press S');
-    openSettings();
+    if (wanted) {
+      // The saved input is gone (unplugged / renamed): fall back to the default.
+      try { capture = await openMic(''); } catch (e2) { return micFailed(e2); }
+    } else {
+      return micFailed(e);
+    }
   }
+  $('mic').classList.remove('off');
+  $('micName').textContent = capture.label;
+  quietSince = performance.now();
+  if (asrReady) status('listening', 'Listening');
+  fillInputs();
+}
+
+function openMic(deviceId) {
+  return startCapture({ deviceId, cleanup: store.get('cleanup', false) }, (chunk) => {
+    showLevel(chunk);
+    if (asrReady) worker.postMessage({ type: 'audio', samples: chunk }, [chunk.buffer]);
+  });
+}
+
+function micFailed(e) {
+  const msg = micError(e);
+  $('mic').classList.add('off');
+  $('micName').textContent = 'Microphone not working: press S';
+  $('micHint').textContent = '';
+  $('heard').textContent = msg;
+  status('error', 'Microphone problem');
+  openSettings();
+}
+
+// Live level meter (footer + settings). Warn if nothing is heard for a while.
+let quietSince = performance.now();
+let meterShown = 0;
+function showLevel(chunk) {
+  let peak = 0;
+  for (let i = 0; i < chunk.length; i++) { const v = Math.abs(chunk[i]); if (v > peak) peak = v; }
+  // log scale so quiet mics still move the bar: 0.001 -> 0%, 0.5 -> 100%
+  const pct = Math.max(0, Math.min(100, ((Math.log10(Math.max(peak, 1e-4)) + 3) / 2.7) * 100));
+  const now = performance.now();
+  if (now - meterShown > 60) {
+    meterShown = now;
+    $('micLevel').style.width = pct + '%';
+    $('micLevel2').style.width = pct + '%';
+  }
+  if (peak > 0.004) quietSince = now;
+  $('micHint').textContent = now - quietSince > 6000 ? 'No sound from this mic' : '';
 }
 
 function setStart(ref) {
@@ -196,10 +238,17 @@ async function fillInputs() {
   const sel = $('input');
   try {
     const inputs = await listInputs();
-    sel.replaceChildren(...inputs.map((d, k) => new Option(d.label || `Input ${k + 1}`, d.deviceId)));
+    const opts = [new Option('System default', '')];
+    for (const [k, d] of inputs.entries()) {
+      if (d.deviceId === 'default' || d.deviceId === 'communications') continue;
+      opts.push(new Option(d.label || `Input ${k + 1}`, d.deviceId));
+    }
+    sel.replaceChildren(...opts);
     sel.value = store.get('input', '');
+    if (sel.selectedIndex < 0) sel.value = '';
   } catch { /* no permission yet */ }
 }
+navigator.mediaDevices?.addEventListener?.('devicechange', fillInputs);
 
 (function setupSettings() {
   const js = $('startJuz');
@@ -208,6 +257,9 @@ async function fillInputs() {
   $('cleanup').checked = store.get('cleanup', false);
   $('showTr').checked = store.get('showTr', true);
   document.body.classList.toggle('no-tr', !$('showTr').checked);
+  // Switching the input takes effect straight away, so the meter shows it.
+  $('input').onchange = () => { store.set('input', $('input').value); listen(); };
+  $('cleanup').onchange = () => { store.set('cleanup', $('cleanup').checked); listen(); };
   $('apply').onclick = () => {
     store.set('input', $('input').value);
     store.set('cleanup', $('cleanup').checked);
@@ -217,7 +269,7 @@ async function fillInputs() {
     store.set('start', start || null);
     if (start) setStart(start);
     closeSettings();
-    if (asrReady) listen();
+    listen();
   };
   $('close').onclick = closeSettings;
 })();
@@ -236,5 +288,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('resize', () => shown >= 0 && fit());
+$('mic').addEventListener('click', openSettings);
+// Show the mouse pointer only while it moves (it's a TV).
+let cursorTimer = 0;
+window.addEventListener('mousemove', () => {
+  document.body.classList.add('cursor-on');
+  clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => document.body.classList.remove('cursor-on'), 3000);
+});
 try { await navigator.wakeLock?.request('screen'); } catch { /* not supported */ }
 document.body.classList.add('idle-on');

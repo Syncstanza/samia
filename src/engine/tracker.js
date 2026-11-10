@@ -23,7 +23,9 @@ const DEFAULTS = {
   maxQuery: 40,        // letters of recent speech to match
   minQuery: 12,        // don't decide on less than this
   lockAccept: 0.55,    // LOCKED: alignment quality to accept a step
-  backAccept: 0.62,    // LOCKED: quality needed to step backwards (repeats)
+  backAccept: 0.62,
+  skipAccept: 0.68,    // LOCKED: quality needed to skip past the next ayah
+  skipMinQuery: 24,    // ...and at least this many letters heard    // LOCKED: quality needed to step backwards (repeats)
   searchAccept: 0.65,  // SEARCHING: quality needed for a candidate
   fatihaSwitch: 0.7,   // LOCKED elsewhere -> jump into al-Fatiha
   fatihaProbe: 24,     // newest letters used for that check
@@ -155,8 +157,13 @@ export class Tracker {
     if (inFatiha) { lo = 0; hi = fatihaEnd; }
     const r = align(q, letters, lo, hi, this.pos + this.lastAdd);
 
-    // Going backwards (a repeated ayah) needs a clearer match than going on.
-    const need = r.end < this.pos - 10 ? this.o.backAccept : this.o.lockAccept;
+    // Going backwards (a repeated ayah) needs a clearer match than going on,
+    // and so does skipping ahead past the next ayah: a common phrase
+    // ("الذين آمنوا") appears every few ayat.
+    const skip = ayahOf[Math.max(0, r.end - 1)] - curAyah;
+    let need = this.o.lockAccept;
+    if (r.end < this.pos - 10) need = this.o.backAccept;
+    else if (skip >= 2) need = q.length >= this.o.skipMinQuery ? this.o.skipAccept : Infinity;
     if (r.norm >= need) {
       this._accept(r);
       return;

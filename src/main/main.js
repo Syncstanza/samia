@@ -6,8 +6,13 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 async function open() {
   // Microphone / line-in permission is granted to our own page only.
+  const ours = (url) => typeof url === 'string' && url.startsWith('http://127.0.0.1:');
   session.defaultSession.setPermissionRequestHandler((wc, permission, done) => {
-    done(permission === 'media' && wc.getURL().startsWith('http://127.0.0.1:'));
+    done(permission === 'media' && ours(wc.getURL()));
+  });
+  // Also answer "may I?" checks, so the input list shows real microphone names.
+  session.defaultSession.setPermissionCheckHandler((wc, permission, origin) => {
+    return permission === 'media' && ours(origin || (wc && wc.getURL()));
   });
 
   const server = await startServer(0);

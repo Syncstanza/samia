@@ -16,7 +16,9 @@ import { QuranAsr } from './asr.js';
 const SR = 16000;
 const WINDOW = 4.0 * SR;   // seconds of audio the model looks at
 const HOP = 0.6 * SR;      // how often it looks
-const SILENCE_RMS = 0.006; // below this a hop counts as silence
+const MIN_SPEECH_RMS = 0.0008; // absolute floor: quieter than this is silence
+const TARGET_RMS = 0.05;       // quiet mics are boosted to about this level
+const MAX_GAIN = 40;
 
 let tracker = null;
 let asr = null;
@@ -85,14 +87,18 @@ async function hop() {
     let sum = 0;
     for (let i = 0; i < recent.length; i++) sum += recent[i] * recent[i];
     const level = Math.sqrt(sum / Math.max(1, recent.length));
+    // Only true silence is skipped. Room noise is left to the model and the
+    // tracker (noise gives few letters and no good match), because any level
+    // threshold would also cut off a quiet mic or a soft-voiced imam.
+    const speaking = level > MIN_SPEECH_RMS;
 
     let res;
-    if (level < SILENCE_RMS) {
+    if (!speaking) {
       res = tracker.observe('');
       lastHeard = '';
     } else {
       const started = performance.now();
-      lastHeard = await asr.transcribe(ring);
+      lastHeard = await asr.transcribe(withGain(ring));
       res = tracker.observe(lastHeard, Math.min(1, HOP / ring.length));
       res.ms = Math.round(performance.now() - started);
     }
@@ -101,6 +107,18 @@ async function hop() {
   } finally {
     busy = false;
   }
+}
+
+// Quiet mics (laptops, no auto gain) are scaled up so the model hears a normal level.
+function withGain(wave) {
+  let sum = 0;
+  for (let i = 0; i < wave.length; i++) sum += wave[i] * wave[i];
+  const rms = Math.sqrt(sum / Math.max(1, wave.length));
+  const gain = Math.min(MAX_GAIN, TARGET_RMS / Math.max(rms, 1e-6));
+  if (gain <= 1.2) return wave;
+  const out = new Float32Array(wave.length);
+  for (let i = 0; i < wave.length; i++) out[i] = Math.max(-1, Math.min(1, wave[i] * gain));
+  return out;
 }
 
 function send(res, heard = '', level = 0) {

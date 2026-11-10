@@ -46,6 +46,12 @@
     </div>
 
     <footer>
+      <span class="mic" id="mic" title="Press S to change the microphone">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12z"/></svg>
+        <span class="mic-name" id="micName">No microphone yet</span>
+        <span class="meter"><i id="micLevel"></i></span>
+        <span class="mic-hint" id="micHint"></span>
+      </span>
       <span>Sami'a · Syncstanza</span>
       <span>Quran text: Tanzil.net · Translation: Saheeh International</span>
     </footer>
@@ -62,6 +68,8 @@
       <label>Audio input
         <select id="input"></select>
       </label>
+      <div class="meter big"><i id="micLevel2"></i></div>
+      <p class="hint">Speak or recite: the bar should move. If it doesn't, pick another input.</p>
       <label class="row"><input type="checkbox" id="cleanup"> Room microphone (turn on noise reduction)</label>
       <label>Tonight starts at
         <span class="row">
@@ -76,6 +84,7 @@
         <button id="close" class="ghost">Close</button>
       </div>
       <p class="keys">Keys: <kbd>→</kbd> next ayah · <kbd>←</kbd> previous · <kbd>D</kbd> dua screen · <kbd>B</kbd> blank · <kbd>S</kbd> settings · <kbd>F</kbd> full screen</p>
+      <p class="label-small">What it heard:</p>
       <p class="heard" id="heard"></p>
     </div>
   </div>

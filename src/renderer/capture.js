@@ -16,6 +16,16 @@ class Tap extends AudioWorkletProcessor {
 }
 registerProcessor('tap', Tap);`;
 
+export function micError(e) {
+  const name = e && e.name;
+  if (name === 'NotAllowedError' || name === 'SecurityError') {
+    return 'Microphone blocked. Windows: Settings → Privacy & security → Microphone → turn on "Let desktop apps access your microphone".';
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No microphone found (or the chosen one was unplugged). Pick another in Settings.';
+  if (name === 'NotReadableError') return 'The microphone is busy in another app, or Windows can\'t open it.';
+  return `Microphone problem: ${e && e.message || e}`;
+}
+
 export async function listInputs() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   return devices.filter((d) => d.kind === 'audioinput');
@@ -32,6 +42,7 @@ export async function startCapture({ deviceId, cleanup = false } = {}, onChunk) 
     },
   });
   const ctx = new AudioContext({ sampleRate: 16000 });
+  if (ctx.state === 'suspended') await ctx.resume();
   const url = URL.createObjectURL(new Blob([WORKLET], { type: 'text/javascript' }));
   await ctx.audioWorklet.addModule(url);
   const src = ctx.createMediaStreamSource(stream);
@@ -43,6 +54,7 @@ export async function startCapture({ deviceId, cleanup = false } = {}, onChunk) 
       stream.getTracks().forEach((t) => t.stop());
       ctx.close();
     },
-    label: stream.getAudioTracks()[0]?.label || 'microphone',
+    label: stream.getAudioTracks()[0]?.label || 'Microphone',
+    deviceId: stream.getAudioTracks()[0]?.getSettings().deviceId || '',
   };
 }
