@@ -78,10 +78,12 @@ function fit() {
   box.style.setProperty('--tr-size', `${Math.max(1.5 * vh, Math.min(3.2 * vh, lo * 0.4))}px`);
 }
 
-function render(index) {
+async function render(index) {
   if (index === shown || index < 0) return;
   const dir = shown < 0 ? 'fade-in' : index > shown ? 'enter-fwd' : 'enter-back';
   shown = index;
+  try { await document.fonts.load('40px "Amiri Quran"', 'بسم'); } catch { /* fit again later */ }
+  if (index !== shown) return; // a newer ayah arrived meanwhile
   fill($('prev'), index - 1, { full: false });
   fill($('current'), index, { full: true });
   fill($('next'), index + 1, { full: false });
@@ -288,6 +290,9 @@ document.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('resize', () => shown >= 0 && fit());
+// The Arabic font arrives after the first ayah may already be drawn: re-fit then.
+document.fonts?.addEventListener?.('loadingdone', () => shown >= 0 && fit());
+document.fonts?.ready.then(() => shown >= 0 && fit());
 $('mic').addEventListener('click', openSettings);
 // Show the mouse pointer only while it moves (it's a TV).
 let cursorTimer = 0;
