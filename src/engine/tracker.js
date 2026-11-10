@@ -33,6 +33,7 @@ const DEFAULTS = {
   searchAccept: 0.65,  // SEARCHING: quality needed for a candidate
   fatihaSwitch: 0.7,   // LOCKED elsewhere -> jump into al-Fatiha
   fatihaProbe: 24,     // newest letters used for that check
+  fatihaMinSpan: 14,   // ...and at least this much of al-Fatiha must match ("لك يوم" alone isn't enough)
   fatihaTail: 6,       // letters from the end of al-Fatiha that count as "finished"
   failsToSearch: 4,    // consecutive bad pushes before searching
   silenceClear: 3,     // empty pushes before forgetting the buffer
@@ -41,8 +42,9 @@ const DEFAULTS = {
   ambiguityGap: 0.06,  // top-2 candidates closer than this = ambiguous
   maxGramHits: 1500,   // ignore very common 4-grams when voting
   coldMinQuery: 30,    // letters needed before a cold-start search may lock...
-  coldShortQuery: 16,  // ...unless at least this many match this clearly
-  coldShortAccept: 0.8,
+  coldShortQuery: 12,  // ...unless at least this many match this clearly
+  coldShortAccept: 0.85,
+  coldHits: 2,         // agreeing checks in a row needed from cold
 };
 
 export class Tracker {
@@ -206,7 +208,7 @@ export class Tracker {
     if (!inFatiha && !b) {
       const recent = q.slice(-this.o.fatihaProbe);
       const f = align(recent, letters, 0, fatihaEnd);
-      if (f.norm >= this.o.fatihaSwitch) {
+      if (f.norm >= this.o.fatihaSwitch && f.end - f.start >= this.o.fatihaMinSpan) {
         this.buf = recent;
         this._accept(f);
         return;
@@ -327,7 +329,7 @@ export class Tracker {
       this.pending = null;
       return;
     }
-    const needed = cold ? 3 : 2;
+    const needed = cold ? this.o.coldHits : 2;
     if (this.pending && Math.abs(best.end - this.pending.end) <= q.length + 40) {
       this.pending = { ...best, hits: this.pending.hits + 1 };
     } else {
