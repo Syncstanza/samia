@@ -1,0 +1,16 @@
+node_modules/
+dist/
+out/
+.env
+*.log
+.DS_Store
+
+# large/local files
+models/*
+!models/README.md
+tests/audio/*
+!tests/audio/.gitkeep
+
+# python spike
+.venv/
+__pycache__/

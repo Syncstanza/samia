@@ -1,0 +1,11 @@
+{
+  "name": "samia",
+  "productName": "Sami'a",
+  "version": "0.0.1",
+  "description": "Live Quran recitation display for masjids. Free and offline.",
+  "author": "Syncstanza",
+  "license": "Apache-2.0",
+  "private": true,
+  "main": "src/main/main.js",
+  "repository": "github:Syncstanza/samia"
+}
