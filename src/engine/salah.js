@@ -8,10 +8,18 @@
 //   SALAM --recitation--> QIYAM, rak'ah 1 of the next set
 //
 // The one hard case is the takbir for ruku': "الله أكبر" also occurs inside
-// ayat (9:72, 29:45, 40:10). The verse tracker already ignores it when the ayah
-// being recited contains those words. As a second guard, a takbir heard while
-// standing is only accepted after a short silence: if the recitation carries
-// on, it was part of the ayah and the screen keeps following.
+// ayat (9:72, 29:45, 40:10, and phrases that sound close: see
+// docs/takbir-ayat.md). Three guards:
+//   1. The verse tracker ignores it when the words just ahead in the ayah are
+//      "الله أكبر" (exact, from the Quran text).
+//   2. How it was said (utter, measured from the audio): a movement takbir
+//      comes after a pause and is usually stretched ("اللّٰهُ أكبـــر"),
+//      then silence. Inside an ayah it is said in one breath with the words
+//      around it.
+//   3. Silence after it: in ruku' the imam is silent. If recitation or any
+//      real speech follows, it was the ayah. In or just before an inventory
+//      ayah the silence must be longer, and a takbir said in one breath with
+//      the recitation is ignored there altogether.
 //
 // Between ruku' and the end of the sujood the imam says nothing aloud except
 // the transition words. So in those positions any new burst of speech after
@@ -46,11 +54,19 @@ export const POSITIONS = {
 const ORDINAL = ['', '1st', '2nd', '3rd', '4th', '5th', '6th'];
 
 const DEFAULTS = {
-  takbirSilence: 1.2,  // seconds of no recitation after a standing takbir = ruku'
+  takbirSilence: 1.2,  // seconds of silence after a standing takbir = ruku'
+  takbirSilenceClear: 0.8,  // ...if it clearly was a movement takbir (pause + stretched)
+  takbirSilenceRisky: 2.2,  // ...in or just before an ayah that sounds like a takbir
+  pauseBefore: 0.25,   // seconds of silence before a movement takbir
+  stretched: 0.9,      // seconds: a takbir this long or longer is drawn out
+  maxTakbir: 4.5,      // ...but a stretch of speech longer than this is recitation
+  takbirAyat: null,    // Set of global ayah indices from data/takbir-ayat.json
   resumeHops: 2,       // hops of recitation that mean "standing again"
   minRecited: 3,
   cancelLetters: 6,    // speech after a standing takbir that cancels ruku'
-  minDwell: 1.0,       // seconds before a position can change on unrecognised speech
+  minDwell: 1.0,
+  recitationLetters: 26,
+  staleSilence: 4,       // seconds of silence while standing that reset "has recited" // this much speech in ruku'/sujood = reciting again       // seconds before a position can change on unrecognised speech
   qawmahTakbir: 0.4,   // how takbir-like a burst in qawmah must be       // hops of recitation in a qiyam before a takbir can mean ruku'
   istirahah: false,    // the imam sits briefly before rising (jalsat al-istirahah)
   istirahahSeconds: 2.5,
@@ -72,18 +88,25 @@ export class Salah {
    * Feed one tracker result. dt = seconds since the previous call.
    * Returns { position, rakah, changed, label } for the display.
    */
-  step(res, dt) {
+  step(res, dt, utter = null) {
+    this.utter = utter;
+    this.ayah = res.ayah ? res.ayah.index : this.ayah;
     const before = this.position;
     this.since += dt;
     const reciting = !!res.progressed;
     this.reciteRun = reciting ? this.reciteRun + 1 : 0;
     if (reciting && this.position === 'QIYAM') this.recited++;
+    // A long silence while "standing" means we're not really mid-recitation
+    // (a missed salam or movement, then tashahhud or the silent opening dua):
+    // the next takbir needs fresh recitation before it can mean ruku'.
+    this.quiet = res.speech ? 0 : (this.quiet || 0) + dt;
+    if (this.position === 'QIYAM' && this.quiet >= this.o.staleSilence) this.recited = 0;
 
     // A takbir while standing waits for silence: in ruku' the imam is silent.
     // Recitation, or any real speech, means it was part of the ayah.
     if (this.pending && !res.call) {
       if (reciting || (res.speech && (res.heard || '').length >= this.o.cancelLetters)) this.pending = null;
-      else if (!res.speech && (this.pending.t += dt) >= this.o.takbirSilence) {
+      else if (!res.speech && (this.pending.t += dt) >= this.pending.need) {
         this.pending = null;
         this._go('RUKU');
       }
@@ -91,10 +114,14 @@ export class Salah {
 
     const burst = res.speech && !this.wasSpeech; // speech starting after silence
     this.wasSpeech = !!res.speech;
+    const heard = res.heard || '';
+    // Calls are short (takbir ~8 letters, "sami' Allahu" ~14): long speech
+    // while bowing or prostrating means the imam is reciting again.
+    const longSpeech = heard.length >= this.o.recitationLetters;
 
     if (res.call) this._onCall(res.call);
-    else if (this.reciteRun >= this.o.resumeHops && this.position !== 'QIYAM') this._onRecitation();
-    else if (burst && this.since >= this.o.minDwell) this._onBurst(res.heard || '');
+    else if (this.position !== 'QIYAM' && (this.reciteRun >= this.o.resumeHops || (longSpeech && this.position !== 'QAWMAH'))) this._onRecitation();
+    else if (burst && !longSpeech && this.since >= this.o.minDwell) this._onBurst(heard);
 
     if (this.position === 'JALSAT_ISTIRAHAH' && this.since >= this.o.istirahahSeconds) this._go('RISING');
 
@@ -110,7 +137,7 @@ export class Salah {
       case 'QIYAM':
         // Ruku' only after the imam has recited in this qiyam. The opening
         // takbir (followed by the silent opening dua) must not count.
-        if (this.recited >= this.o.minRecited) this.pending = { t: 0 };
+        if (this.recited >= this.o.minRecited) this._standingTakbir();
         break;
       case 'RUKU': break;                                 // extra takbir: ignore
       case 'QAWMAH': this._go('SUJOOD_1'); break;
@@ -126,6 +153,28 @@ export class Salah {
         this._go('QIYAM');
         break;
       default: break;
+    }
+  }
+
+  /** A takbir while standing: ruku', or "الله أكبر" inside the ayah? */
+  _standingTakbir() {
+    const u = this.utter;
+    // A movement takbir is its own utterance: a pause before it, then a
+    // drawn-out "الله أكبر" of about 1-4 s. Inside an ayah it is part of a
+    // longer stretch of recitation with no pause just before it.
+    const paused = u ? u.gapBefore >= this.o.pauseBefore : null;
+    const drawnOut = u ? u.dur >= this.o.stretched && u.dur <= this.o.maxTakbir : null;
+    const set = this.o.takbirAyat;
+    const risky = !!set && this.ayah !== undefined && (set.has(this.ayah) || set.has(this.ayah + 1));
+    if (risky) {
+      // In (or just before) an ayah that contains or sounds like a takbir:
+      // a takbir run on from the recitation is the ayah itself.
+      if (u && !paused) return;
+      this.pending = { t: 0, need: this.o.takbirSilenceRisky };
+    } else if (paused && drawnOut) {
+      this.pending = { t: 0, need: this.o.takbirSilenceClear };
+    } else {
+      this.pending = { t: 0, need: this.o.takbirSilence };
     }
   }
 
@@ -171,6 +220,7 @@ export class Salah {
     if (this.position === 'RISING') note = `For the ${ORDINAL[this.rakah + 1] || 'next'} rak'ah`;
     if (this.position === 'JALSAT_ISTIRAHAH') note = `${p.note}, then the ${ORDINAL[this.rakah + 1] || 'next'} rak'ah`;
     if (this.position === 'SALAM') note = this.rakah >= 2 ? `End of ${this.rakah} rak'ahs` : 'End of the prayer';
-    return { position: this.position, rakah: this.rakah, changed, ar: p.ar, en: p.en, note };
+    const phase = this.position === 'QIYAM' ? 'RECITATION' : 'MOVEMENT';
+    return { position: this.position, phase, rakah: this.rakah, changed, ar: p.ar, en: p.en, note };
   }
 }

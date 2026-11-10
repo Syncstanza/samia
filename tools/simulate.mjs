@@ -11,6 +11,7 @@ import { buildIndex } from '../src/engine/quran-index.js';
 import { normalize } from '../src/engine/normalize.js';
 import { Tracker } from '../src/engine/tracker.js';
 import { Salah } from '../src/engine/salah.js';
+import { followHop } from '../src/engine/follow.js';
 
 export function rng(seed) {
   return () => {
@@ -30,7 +31,7 @@ const CALLS = {
   salam: 'السلام عليكم ورحمة الله',
 };
 
-export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start = [2, 142], ayatPerRakah = [6, 12], chunk = 12, cold = false, window = 0, debug = false } = {}) {
+export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start = [2, 142], ayatPerRakah = [6, 12], chunk = 12, cold = false, window = 0, debug = false, takbirAyat = null, stretchedShare = 0.7 } = {}) {
   const ix = buildIndex(data);
   const rand = rng(seed);
   const between = (a, b) => a + Math.floor(rand() * (b - a + 1));
@@ -90,7 +91,8 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
 
   // 3. Run the tracker. Start point is set, like a volunteer would.
   const tr = new Tracker(ix);
-  const salah = new Salah();
+  const risky = takbirAyat ? new Set(takbirAyat.map(([s, a]) => ix.indexOf(s, a))) : null;
+  const salah = new Salah({ takbirAyat: risky });
   let posOk = 0, posTotal = 0, falseRuku = 0, prevTruthPos = 'QIYAM', sinceChange = 0, prevShownPos = 'QIYAM';
   const posWrongs = [];
   if (!cold) tr.setStart(start[0], start[1]); // cold = nobody set tonight's start
@@ -99,19 +101,30 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
   // window > 0: live mode. Each hop the tracker sees the transcript of the last
   // `window` hops of audio (like the real app), not just the new letters.
   let audio = [];
+  let prevKind = 'pause', utter = null;
   pushes.forEach((p, n) => {
+    // How it was said: recitation runs on; a call after a pause is its own
+    // utterance, drawn out most of the time (stretchedShare).
+    if (p.kind === 'pause') utter = utter && { ...utter, gapAfter: (utter.gapAfter || 0) + 0.8 };
+    else if (prevKind !== p.kind || prevKind === 'pause') {
+      const gapBefore = prevKind === 'pause' ? 0.4 + rand() * 0.6 : 0.05;
+      const dur = p.kind === 'call' ? (rand() < stretchedShare ? 1.0 + rand() * 1.2 : 0.55 + rand() * 0.2) : 3;
+      utter = { dur, gapBefore, gapAfter: 0 };
+    }
+    prevKind = p.kind;
+
     let res;
     if (window > 0) {
       audio.push(p.text);
       if (audio.length > window) audio.shift();
       // A silent hop is skipped before the model runs (as in the worker).
-      res = p.text ? tr.observe(audio.join(''), 1 / audio.length) : tr.observe('');
+      res = followHop(tr, salah, p.text ? { text: audio.join(''), newFraction: 1 / audio.length, dt: 0.8, utter } : { text: '', dt: 0.8 });
       if (res.clearAudio) audio = [];
     } else {
-      res = tr.push(p.text);
+      res = followHop(tr, salah, { text: p.text, push: true, dt: 0.8, utter: p.text ? utter : null });
     }
     // Prayer position: allow 3 pushes (~2 s) after each change to catch up.
-    const view = salah.step(res, 0.8);
+    const view = res.salah;
     if (debug && (p.kind !== 'quran' || res.call)) console.log(n, p.pos.padEnd(9), JSON.stringify(p.text).padEnd(18), String(res.call || '').padEnd(7), view.position, res.progressed ? 'progressed' : '');
     if (p.pos !== prevTruthPos) { prevTruthPos = p.pos; sinceChange = 0; } else sinceChange++;
     if (view.position === 'RUKU' && prevShownPos !== 'RUKU' && p.pos === 'QIYAM') {
@@ -156,7 +169,9 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
 if (import.meta.url === `file://${process.argv[1]}`) {
   const data = JSON.parse(readFileSync(new URL('../data/quran/quran.json', import.meta.url), 'utf8'));
   const [er = '0.15', rk = '8', sd = '1', st = '2:142', ...modes] = process.argv.slice(2);
+  const takbirAyat = JSON.parse(readFileSync(new URL('../data/takbir-ayat.json', import.meta.url), 'utf8')).ayat;
   const res = simulate(data, { errorRate: +er, rakahs: +rk, seed: +sd, start: st.split(':').map(Number),
-    cold: modes.includes('cold'), window: modes.includes('live') ? 4 : 0 });
+    cold: modes.includes('cold'), window: modes.includes('live') ? 4 : 0, takbirAyat,
+    stretchedShare: modes.includes('quick') ? 0 : 0.7 });
   console.log(JSON.stringify(res, null, 2));
 }

@@ -77,6 +77,13 @@ export class Tracker {
     this.offset = 0;
   }
 
+  /** Copy of the position, to undo whatever was heard during ruku' and sujood. */
+  snapshot() {
+    const { state, buf, pos, khatmPos, shown, fails, silence, pending, offset } = this;
+    return { state, buf, pos, khatmPos, shown, fails, silence, pending, offset };
+  }
+  restore(s) { Object.assign(this, s); }
+
   /** Tell it where tonight starts (e.g. first ayah of the juz). */
   setStart(surah, ayah) {
     const i = this.ix.indexOf(surah, ayah);

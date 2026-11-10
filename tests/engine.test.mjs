@@ -160,3 +160,64 @@ test('salah: the real ruku\' takbir right after 29:45 (which contains "الله 
   for (let k = 0; k < 3; k++) v = salah.step(tr.push(''), 0.6);
   assert.equal(v.position, 'RUKU');
 });
+
+import { followHop } from '../src/engine/follow.js';
+
+const takbirList = JSON.parse(readFileSync(new URL('../data/takbir-ayat.json', import.meta.url), 'utf8')).ayat;
+const takbirAyat = new Set(takbirList.map(([s, a]) => ix.indexOf(s, a)));
+
+test('inventory: the three exact "الله أكبر" ayat are listed', () => {
+  const exact = takbirList.filter(([, , k]) => k === 'exact').map(([s, a]) => `${s}:${a}`);
+  assert.deepEqual(exact.sort(), ['29:45', '40:10', '9:72']);
+});
+
+const recited = (salah, ayah) => { for (let i = 0; i < 6; i++) salah.step({ progressed: true, speech: true, heard: 'x', ayah }, 0.6); };
+
+test('inventory ayah: a takbir said in one breath with the recitation is ignored', () => {
+  const salah = new Salah({ takbirAyat });
+  const ayah = ix.ref(ix.indexOf(29, 45));
+  recited(salah, ayah);
+  salah.step({ call: 'takbir', speech: true, heard: '', ayah }, 0.6, { dur: 2.5, gapBefore: 0.05 });
+  let v;
+  for (let i = 0; i < 6; i++) v = salah.step({ speech: false, ayah }, 0.6); // even a long pause after
+  assert.equal(v.position, 'QIYAM');
+});
+
+test('inventory ayah: a paused, stretched takbir is ruku\' after a longer silence', () => {
+  const salah = new Salah({ takbirAyat });
+  const ayah = ix.ref(ix.indexOf(29, 45));
+  recited(salah, ayah);
+  salah.step({ call: 'takbir', speech: true, heard: '', ayah }, 0.6, { dur: 1.6, gapBefore: 0.7 });
+  let v = salah.step({ speech: false, ayah }, 0.6);
+  v = salah.step({ speech: false, ayah }, 0.6);
+  assert.equal(v.position, 'QIYAM', 'waits longer in an inventory ayah');
+  for (let i = 0; i < 3; i++) v = salah.step({ speech: false, ayah }, 0.6);
+  assert.equal(v.position, 'RUKU');
+});
+
+test('ordinary ayah: a paused, stretched takbir goes to ruku\' quickly', () => {
+  const salah = new Salah({ takbirAyat });
+  const ayah = ix.ref(ix.indexOf(2, 150));
+  recited(salah, ayah);
+  salah.step({ call: 'takbir', speech: true, heard: '', ayah }, 0.6, { dur: 1.6, gapBefore: 0.7 });
+  let v = salah.step({ speech: false, ayah }, 0.6);
+  v = salah.step({ speech: false, ayah }, 0.6);
+  assert.equal(v.position, 'RUKU');
+});
+
+test('movement phase: the ayah on screen is frozen until recitation resumes', () => {
+  const tr = new Tracker(ix);
+  const salah = new Salah({ takbirAyat });
+  tr.setStart(2, 150);
+  const i = ix.indexOf(2, 150);
+  const text = ix.letters.slice(ix.ayahStart[i], ix.ayahStart[i + 2]);
+  let out;
+  for (let p = 0; p < text.length; p += 12) out = followHop(tr, salah, { text: text.slice(p, p + 12), push: true });
+  const before = out.ayah.index;
+  out = followHop(tr, salah, { text: 'الله اكبر', push: true, utter: { dur: 1.5, gapBefore: 0.6 } });
+  for (let k = 0; k < 3; k++) out = followHop(tr, salah, { text: '', push: true });
+  assert.equal(out.phase, 'MOVEMENT');
+  // Garbage heard in sujood must not move the ayah.
+  out = followHop(tr, salah, { text: 'سبحان ربي الاعلي', push: true });
+  assert.equal(out.ayah.index, before);
+});

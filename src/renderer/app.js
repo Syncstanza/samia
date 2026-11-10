@@ -179,7 +179,8 @@ worker.onmessage = ({ data: m }) => {
     if (m.heard !== undefined && m.heard) $('heard').textContent = m.heard;
     if (m.salah) showPosition(m.salah);
     if ((asrReady || params.has('demo')) && !muted) {
-      if (m.state === 'LOCKED') status('following', 'Following');
+      if (m.phase === 'MOVEMENT') status('following', "Ruku' & Sujood");
+      else if (m.state === 'LOCKED') status('following', 'Following');
       else status('listening', 'Listening');
     }
   } else if (m.type === 'error') {
@@ -191,6 +192,7 @@ worker.onmessage = ({ data: m }) => {
 worker.postMessage({
   type: 'init',
   dataUrl: '/data/quran/quran.json',
+  takbirUrl: '/data/takbir-ayat.json',
   modelUrl: params.has('demo') ? null : MODEL + 'model.int8.onnx',
   tokensUrl: MODEL + 'tokens.txt',
 });
@@ -296,7 +298,8 @@ async function runDemo(spec) {
   if (params.has('rakah')) {
     const pace = Number(params.get('pace') || 900);
     const say = async (text, silent) => {
-      worker.postMessage({ type: 'text', text });
+      // The imam pauses, then draws the takbir out.
+      worker.postMessage({ type: 'text', text, utter: { dur: 1.6, gapBefore: 0.8 } });
       for (let k = 0; k < silent; k++) { await sleep(pace); worker.postMessage({ type: 'text', text: '' }); }
       await sleep(pace);
     };
