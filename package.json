@@ -9,13 +9,22 @@
   "main": "src/main/main.js",
   "repository": "github:Syncstanza/samia",
   "devDependencies": {
+    "electron": "^45.2.3",
     "quran-json": "^1.0.1",
     "quran-meta": "^7.0.0"
   },
   "type": "module",
   "scripts": {
+    "start": "electron .",
+    "start:window": "electron . --window",
+    "serve": "node src/server.js 4173",
+    "model": "node tools/download-model.mjs",
     "build:data": "node tools/build-quran-data.mjs",
     "simulate": "node tools/simulate.mjs",
     "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/amiri-quran": "^5.3.0",
+    "onnxruntime-web": "^1.31.1"
   }
 }

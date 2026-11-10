@@ -76,6 +76,23 @@ That's it. No account, no internet, nothing to log into.
 
 ---
 
+## 🧪 Try the development version
+
+Needs [Node.js 22+](https://nodejs.org). In the project folder:
+
+```bash
+npm install          # app + Electron
+npm run model        # downloads the Quran speech model (~19 MB)
+npm start            # opens Sami'a full screen and starts listening
+```
+
+`npm run start:window` opens it in a normal window. Recite into your microphone and the screen follows.
+Press <kbd>S</kbd> for settings (audio input, tonight's start point), <kbd>→</kbd>/<kbd>←</kbd> to move by hand, <kbd>D</kbd> for the dua screen, <kbd>B</kbd> to blank it, <kbd>Esc</kbd> to close.
+
+No microphone handy? `npm run serve`, then open `http://localhost:4173/?demo=2:255-2:257` to watch it follow a simulated recitation.
+
+---
+
 ## 🔐 Privacy
 
 No account, no tracking, no internet. Audio never leaves the computer and is never saved. There is nothing to send.

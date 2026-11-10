@@ -56,6 +56,7 @@ export class Tracker {
     this.pending = null;  // search candidate waiting for confirmation
     this.confidence = 0;
     this.lastAdd = 0;
+    this.cleared = false;
   }
 
   /** Tell it where tonight starts (e.g. first ayah of the juz). */
@@ -66,7 +67,7 @@ export class Tracker {
     this.pos = this.khatmPos;
     this.state = 'LOCKED';
     this.fails = 0;
-    this.buf = '';
+    this._clear();
   }
 
   /** Manual override: show this global ayah index and continue from it. */
@@ -77,25 +78,50 @@ export class Tracker {
     this.shown = i;
     this.state = 'LOCKED';
     this.fails = 0;
-    this.buf = '';
+    this._clear();
     this.pending = null;
     return this._result(true);
   }
   next() { return this.jumpTo(this.shown + 1); }
   prev() { return this.jumpTo(this.shown - 1); }
 
-  /** Feed newly recognised text. Returns what to display. */
+  /** Feed newly recognised text (only the new part). Returns what to display. */
   push(text) {
     const add = normalize(text);
-    if (!add) {
-      if (++this.silence >= this.o.silenceClear) this.buf = '';
-      return this._result(false);
-    }
-    this.silence = 0;
+    if (!add) return this._silent();
     this.lastAdd = add.length;
-    this.buf = (this.buf + add).slice(-this.o.maxQuery);
+    return this._step((this.buf + add).slice(-this.o.maxQuery));
+  }
+
+  /**
+   * Live mode: feed the transcript of the last few seconds of audio (a sliding
+   * window), every hop. newFraction = share of the window that is new audio.
+   * When the result says clearAudio, drop the audio heard so far, so stale
+   * words (a takbir, the end of al-Fatiha) aren't heard again.
+   */
+  observe(windowText, newFraction = 0.2) {
+    const all = normalize(windowText);
+    if (!all) return this._silent();
+    this.lastAdd = Math.max(1, Math.round(all.length * newFraction));
+    return this._step(all.slice(-this.o.maxQuery));
+  }
+
+  /** Nothing recognised (silence) for one hop. */
+  _silent() {
+    if (++this.silence >= this.o.silenceClear && this.buf) this._clear();
+    return this._result(false);
+  }
+
+  _clear() {
+    this.buf = '';
+    this.cleared = true;
+  }
+
+  _step(buf) {
+    this.silence = 0;
+    this.buf = buf;
     if (this._heardCall()) {
-      this.buf = '';
+      this._clear();
       return this._result(false);
     }
     if (this.buf.length < this.o.minQuery) return this._result(false);
@@ -169,7 +195,7 @@ export class Tracker {
       // al-Fatiha finished: keep 1:7 on screen and carry on from the khatm
       // position with a clean buffer (so "Ameen" and Fatiha letters don't
       // confuse it). If we don't know the khatm position yet, search for it.
-      this.buf = '';
+      this._clear();
       if (this.khatmPos >= 0) {
         this.pos = this.khatmPos;
       } else {
@@ -245,6 +271,8 @@ export class Tracker {
 
   _result(changed) {
     const ref = this.shown >= 0 ? this.ix.ref(this.shown) : null;
-    return { state: this.state, ayah: ref, changed, confidence: Number(this.confidence.toFixed(2)) };
+    const clearAudio = this.cleared;
+    this.cleared = false;
+    return { state: this.state, ayah: ref, changed, clearAudio, confidence: Number(this.confidence.toFixed(2)) };
   }
 }

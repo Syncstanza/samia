@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sami'a</title>
+  <link rel="icon" href="/docs/logo.png">
+  <link rel="stylesheet" href="/node_modules/@fontsource/amiri-quran/index.css">
+  <link rel="stylesheet" href="/src/renderer/styles.css">
+</head>
+<body>
+  <div id="stage">
+    <svg class="arch" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="archGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#22e3d2"/>
+          <stop offset="0.55" stop-color="#2be38f"/>
+          <stop offset="1" stop-color="#a6f35a"/>
+        </linearGradient>
+      </defs>
+      <path d="M70 900 V360 C70 210 560 170 800 22 C1040 170 1530 210 1530 360 V900"
+            fill="none" stroke="url(#archGrad)" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+
+    <header>
+      <div class="surah">
+        <span class="surah-ar" id="surahAr"></span>
+        <span class="surah-en" id="surahEn"></span>
+      </div>
+      <div class="meta">
+        <span class="juz" id="juz"></span>
+        <span class="pill" id="status"><i></i><b>Starting</b></span>
+      </div>
+    </header>
+
+    <main id="flow">
+      <section class="ayah prev" id="prev"></section>
+      <section class="ayah current" id="current"></section>
+      <section class="ayah next" id="next"></section>
+    </main>
+
+    <div class="idle" id="idle">
+      <img src="/docs/logo.png" alt="">
+      <h1>Sami'a</h1>
+      <p id="idleText">Listening for the imam…</p>
+    </div>
+
+    <footer>
+      <span>Sami'a · Syncstanza</span>
+      <span>Quran text: Tanzil.net · Translation: Saheeh International</span>
+    </footer>
+
+    <div class="overlay" id="dua">
+      <img src="/docs/logo.png" alt="">
+      <p class="dua-ar">دُعَاء</p>
+      <p class="dua-en">Dua</p>
+    </div>
+    <div class="overlay black" id="blank"></div>
+
+    <div class="panel" id="settings" hidden>
+      <h2>Settings</h2>
+      <label>Audio input
+        <select id="input"></select>
+      </label>
+      <label class="row"><input type="checkbox" id="cleanup"> Room microphone (turn on noise reduction)</label>
+      <label>Tonight starts at
+        <span class="row">
+          <select id="startJuz"></select>
+          <span class="or">or</span>
+          <input id="startRef" placeholder="2:142" size="7">
+        </span>
+      </label>
+      <label class="row"><input type="checkbox" id="showTr" checked> Show translation</label>
+      <div class="buttons">
+        <button id="apply">Start listening</button>
+        <button id="close" class="ghost">Close</button>
+      </div>
+      <p class="keys">Keys: <kbd>→</kbd> next ayah · <kbd>←</kbd> previous · <kbd>D</kbd> dua screen · <kbd>B</kbd> blank · <kbd>S</kbd> settings · <kbd>F</kbd> full screen</p>
+      <p class="heard" id="heard"></p>
+    </div>
+  </div>
+  <script type="module" src="/src/renderer/app.js"></script>
+</body>
+</html>

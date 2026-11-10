@@ -28,7 +28,7 @@ const CALLS = {
   rise: 'سمع الله لمن حمده',
 };
 
-export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start = [2, 142], ayatPerRakah = [6, 12], chunk = 12, cold = false } = {}) {
+export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start = [2, 142], ayatPerRakah = [6, 12], chunk = 12, cold = false, window = 0 } = {}) {
   const ix = buildIndex(data);
   const rand = rng(seed);
   const between = (a, b) => a + Math.floor(rand() * (b - a + 1));
@@ -80,8 +80,19 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
   if (!cold) tr.setStart(start[0], start[1]); // cold = nobody set tonight's start
   let quran = 0, correct = 0, lag = 0, wrong = 0, blank = 0, held = 0, firstCorrect = -1;
   const wrongs = [];
+  // window > 0: live mode. Each hop the tracker sees the transcript of the last
+  // `window` hops of audio (like the real app), not just the new letters.
+  let audio = [];
   pushes.forEach((p, n) => {
-    const res = tr.push(p.text);
+    let res;
+    if (window > 0) {
+      audio.push(p.text);
+      if (audio.length > window) audio.shift();
+      res = audio.join('') ? tr.observe(audio.join(''), 1 / audio.length) : tr.observe('');
+      if (res.clearAudio) audio = [];
+    } else {
+      res = tr.push(p.text);
+    }
     if (p.kind !== 'quran') return;
     quran++;
     const shown = res.ayah ? res.ayah.index : -1;
@@ -109,7 +120,8 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const data = JSON.parse(readFileSync(new URL('../data/quran/quran.json', import.meta.url), 'utf8'));
-  const [er = '0.15', rk = '8', sd = '1', st = '2:142', mode = ''] = process.argv.slice(2);
-  const res = simulate(data, { errorRate: +er, rakahs: +rk, seed: +sd, start: st.split(':').map(Number), cold: mode === 'cold' });
+  const [er = '0.15', rk = '8', sd = '1', st = '2:142', ...modes] = process.argv.slice(2);
+  const res = simulate(data, { errorRate: +er, rakahs: +rk, seed: +sd, start: st.split(':').map(Number),
+    cold: modes.includes('cold'), window: modes.includes('live') ? 4 : 0 });
   console.log(JSON.stringify(res, null, 2));
 }

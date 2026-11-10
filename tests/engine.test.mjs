@@ -62,3 +62,11 @@ test('simulated cold start in short-ayah surahs stays mostly right', () => {
     assert.ok(r.wrongVerse <= 5, `${start.join(':')}: ${r.wrongVerse}% wrong`);
   }
 });
+
+test('live mode (sliding 4 s window): never a wrong ayah in juz 2', () => {
+  for (const seed of [1, 2, 3]) {
+    const r = simulate(data, { errorRate: 0.2, rakahs: 8, seed, start: [2, 142], window: 4 });
+    assert.equal(r.wrongVerse, 0, `seed ${seed}`);
+    assert.ok(r.correct >= 90, `seed ${seed}: ${r.correct}%`);
+  }
+});
