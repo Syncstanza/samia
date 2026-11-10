@@ -12,6 +12,7 @@
 import { buildIndex } from './quran-index.js';
 import { Tracker } from './tracker.js';
 import { QuranAsr } from './asr.js';
+import { Salah } from './salah.js';
 
 const SR = 16000;
 const WINDOW = 4.0 * SR;   // seconds of audio the model looks at
@@ -21,6 +22,7 @@ const TARGET_RMS = 0.05;       // quiet mics are boosted to about this level
 const MAX_GAIN = 40;
 
 let tracker = null;
+let salah = new Salah();
 let asr = null;
 let ring = new Float32Array(0);
 let sinceHop = 0;
@@ -34,7 +36,8 @@ self.onmessage = async ({ data: msg }) => {
     switch (msg.type) {
       case 'init': return await init(msg);
       case 'audio': return onAudio(msg.samples);
-      case 'text': return send(tracker.push(msg.text), msg.text);
+      case 'text': return send(tracker.push(msg.text), msg.text, 0, 0.9);
+      case 'salah': salah = new Salah({ istirahah: !!msg.istirahah }); return send(tracker._result(false));
       case 'start': tracker.setStart(msg.surah, msg.ayah); ring = new Float32Array(0); return send(tracker._result(true));
       case 'next': ring = new Float32Array(0); return send(tracker.next());
       case 'prev': ring = new Float32Array(0); return send(tracker.prev());
@@ -103,7 +106,7 @@ async function hop() {
       res.ms = Math.round(performance.now() - started);
     }
     if (res.clearAudio) ring = new Float32Array(0);
-    send(res, lastHeard, level);
+    send(res, lastHeard, level, HOP / SR);
   } finally {
     busy = false;
   }
@@ -121,6 +124,7 @@ function withGain(wave) {
   return out;
 }
 
-function send(res, heard = '', level = 0) {
-  post({ type: 'update', ...res, heard, level });
+function send(res, heard = '', level = 0, dt = 0) {
+  const position = salah.step(res, dt);
+  post({ type: 'update', ...res, heard, level, salah: position });
 }

@@ -28,6 +28,7 @@
         <span class="surah-en" id="surahEn"></span>
       </div>
       <div class="meta">
+        <span class="rakah" id="rakah"></span>
         <span class="juz" id="juz"></span>
         <span class="pill" id="status"><i></i><b>Starting</b></span>
       </div>
@@ -38,6 +39,12 @@
       <section class="ayah current" id="current"></section>
       <section class="ayah next" id="next"></section>
     </main>
+
+    <div class="position" id="position" aria-live="polite">
+      <p class="pos-ar" id="posAr"></p>
+      <p class="pos-en" id="posEn"></p>
+      <p class="pos-note" id="posNote"></p>
+    </div>
 
     <div class="idle" id="idle">
       <img src="/docs/logo.png" alt="">
@@ -95,6 +102,8 @@
         </span>
       </label>
       <label class="row"><input type="checkbox" id="showTr" checked> Show translation</label>
+      <label class="row"><input type="checkbox" id="showPos" checked> Show prayer positions (ruku', sujood…)</label>
+      <label class="row"><input type="checkbox" id="istirahah"> The imam sits briefly before standing (jalsat al-istirahah)</label>
       <div class="buttons">
         <button id="apply">Start listening</button>
         <button id="close" class="ghost">Close</button>

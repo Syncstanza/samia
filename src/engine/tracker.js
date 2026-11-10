@@ -17,7 +17,16 @@ import { GRAM } from './quran-index.js';
 
 // Things the imam says aloud that aren't Quran. When heard, the screen holds
 // and the buffer is cleared so they can't push the position forward.
-const CALLS = ['الله اكبر', 'سمع الله لمن حمده', 'ربنا ولك الحمد', 'امين', 'السلام عليكم ورحمة الله'].map(normalize);
+// Each also appears (or could appear) inside an ayah: "الله أكبر" in 9:72,
+// 29:45 and 40:10, "أمين" (trustworthy) in 26:107 and others. So a call only
+// counts when the ayah being recited doesn't continue with those same words.
+const CALLS = [
+  { type: 'takbir', text: 'الله اكبر' },
+  { type: 'tasmi', text: 'سمع الله لمن حمده' },
+  { type: 'tahmid', text: 'ربنا ولك الحمد' },
+  { type: 'ameen', text: 'امين' },
+  { type: 'salam', text: 'السلام عليكم ورحمة الله' },
+].map((c) => ({ ...c, norm: normalize(c.text) }));
 
 const DEFAULTS = {
   maxQuery: 40,        // letters of recent speech to match
@@ -37,6 +46,12 @@ const DEFAULTS = {
   ambiguityGap: 0.06,  // top-2 candidates closer than this = ambiguous
   maxGramHits: 1500,   // ignore very common 4-grams when voting
   callMatch: 0.7,
+  shortCallMatch: 0.8, // takbir, ameen
+  callBack: 4,         // letters behind / ahead of the imam's position checked:
+                       // the tracker never runs ahead of him, so the words he is
+                       // about to say are ahead; looking back would see the words
+                       // he just finished (29:45 ends near "الله أكبر")
+  callAhead: 140,      //   for the call's words inside the ayah
   coldMinQuery: 30,    // letters needed before a cold-start search may lock      // how closely a takbir / "Ameen" must match to count
 };
 
@@ -112,6 +127,10 @@ export class Tracker {
 
   /** Nothing recognised (silence) for one hop. */
   _silent() {
+    this.progressed = false;
+    this.call = null;
+    this.speech = false;
+    this.heard = '';
     if (++this.silence >= this.o.silenceClear && this.buf) this._clear();
     return this._result(false);
   }
@@ -124,7 +143,11 @@ export class Tracker {
   _step(buf) {
     this.silence = 0;
     this.buf = buf;
-    if (this._heardCall()) {
+    this.progressed = false;
+    this.speech = true;
+    this.heard = buf;
+    this.call = this._heardCall();
+    if (this.call) {
       this._clear();
       return this._result(false);
     }
@@ -136,13 +159,28 @@ export class Tracker {
     return this._result(this.shown !== before);
   }
 
+  /** Returns the call just heard ('takbir', 'tasmi', ...) or null. */
   _heardCall() {
     for (const c of CALLS) {
-      const tail = this.buf.slice(-(c.length + 4));
-      if (tail.length < c.length - 1) continue;
-      if (align(c, tail, 0, tail.length).norm >= this.o.callMatch) return true;
+      const tail = this.buf.slice(-(c.norm.length + 4));
+      if (tail.length < c.norm.length - 1) continue;
+      // Short calls need a closer match: "الله الكافرين" is two letters from "الله أكبر".
+      const need = c.norm.length <= 8 ? this.o.shortCallMatch : this.o.callMatch;
+      if (align(c.norm, tail, 0, tail.length).norm < need) continue;
+      if (this._inAyah(c.norm)) continue; // it's the ayah itself, keep following
+      return c.type;
     }
-    return false;
+    return null;
+  }
+
+  /** Do the words around the imam's position contain this phrase? */
+  _inAyah(phrase) {
+    if (this.state !== 'LOCKED' || this.pos < 0) return false;
+    const { letters } = this.ix;
+    const lo = this.pos - this.o.callBack, hi = this.pos + this.o.callAhead;
+    // Exact test on the Quran text itself: "الله" is everywhere, so a loose
+    // match would hide real takbirs.
+    return letters.slice(Math.max(0, lo), Math.min(letters.length, hi)).includes(phrase);
   }
 
   // ---------------------------------------------------------------- LOCKED
@@ -192,6 +230,8 @@ export class Tracker {
 
   _accept(r) {
     const { ayahOf, fatihaEnd } = this.ix;
+    // Recitation moved on (used by the salah tracker to cancel a false takbir).
+    if (r.end > this.pos + 2 || ayahOf[Math.max(0, r.end - 1)] !== this.shown) this.progressed = true;
     this.pos = r.end;
     this.fails = 0;
     this.confidence = r.norm;
@@ -285,6 +325,14 @@ export class Tracker {
     const clearAudio = this.cleared;
     this.cleared = false;
     // letter: how many letters of the shown ayah have been recited so far.
-    return { state: this.state, ayah: ref, letter: this.offset, changed, clearAudio, confidence: Number(this.confidence.toFixed(2)) };
+    const call = this.call || null;
+    const progressed = !!this.progressed;
+    const speech = !!this.speech;
+    const heard = this.heard || '';
+    this.call = null;
+    this.progressed = false;
+    this.speech = false;
+    this.heard = '';
+    return { state: this.state, ayah: ref, letter: this.offset, changed, clearAudio, call, progressed, speech, heard, confidence: Number(this.confidence.toFixed(2)) };
   }
 }

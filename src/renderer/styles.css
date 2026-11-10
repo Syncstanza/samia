@@ -36,7 +36,7 @@ body.settings-open, body.cursor-on { cursor: default; }
 
 /* ---------- header ---------- */
 header {
-  position: relative; z-index: 2;
+  position: relative; z-index: 5; /* stays visible over the position card */
   display: flex; justify-content: space-between; align-items: center;
   padding: 3.2vh 6vw 0;
 }
@@ -200,3 +200,22 @@ body.muted .controls .mute span::after { content: "d"; }
 .mic { opacity: 0; transition: opacity 250ms ease; }
 body.cursor-on .mic, body.settings-open .mic, .mic.off, .mic.warn { opacity: 1; }
 body.muted .mic-name::after { content: " (muted)"; color: #ff9a9a; }
+
+/* ---------- prayer positions ---------- */
+.rakah { font-size: 2vh; color: var(--gold); opacity: 0.85; }
+.position {
+  position: absolute; inset: 0; z-index: 4;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2vh;
+  opacity: 0; pointer-events: none; transition: opacity 450ms ease;
+  background: radial-gradient(900px 520px at 50% 50%, rgba(11, 18, 21, 0.94), rgba(11, 18, 21, 0.86));
+}
+body.pos-on .position { opacity: 1; }
+body.pos-on #flow { filter: blur(3px); opacity: 0.35; transition: opacity 450ms ease, filter 450ms ease; }
+#flow { transition: opacity 450ms ease, filter 450ms ease; }
+.pos-ar {
+  margin: 0 0 4vh; font-family: "Amiri Quran", serif; direction: rtl; font-size: 12vh; line-height: 1.6;
+  color: var(--gold); text-shadow: 0 0 40px rgba(255, 194, 58, 0.35);
+}
+.pos-en { margin: 0; font-size: 4.2vh; font-weight: 600; letter-spacing: 0.02em; }
+.pos-note { margin: 0; font-size: 2.4vh; color: var(--muted); }
+.position.swap .pos-ar, .position.swap .pos-en, .position.swap .pos-note { animation: fadeIn 450ms ease both; }

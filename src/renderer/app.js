@@ -142,6 +142,21 @@ function light(letter) {
   }
 }
 
+// Ruku', sujood, etc.: a card over the (dimmed) Quran. Standing = no card.
+let lastPos = '';
+function showPosition(v) {
+  $('rakah').textContent = `Rak'ah ${v.rakah}`;
+  const on = v.position !== 'QIYAM' && store.get('showPos', true) && !muted;
+  document.body.classList.toggle('pos-on', on);
+  if (!on || v.position + v.note === lastPos) { if (!on) lastPos = ''; return; }
+  lastPos = v.position + v.note;
+  $('posAr').textContent = v.ar;
+  $('posEn').textContent = v.en;
+  $('posNote').textContent = v.note;
+  const el = $('position');
+  el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
+}
+
 function status(kind, text) {
   const el = $('status');
   el.className = `pill ${kind}`;
@@ -153,6 +168,7 @@ worker.onmessage = ({ data: m }) => {
   if (m.type === 'ready') {
     asrReady = m.asr;
     if (params.has('demo')) return runDemo(params.get('demo'));
+    if (store.get('istirahah', false)) worker.postMessage({ type: 'salah', istirahah: true });
     const start = params.get('start') || store.get('start', null);
     if (start) setStart(start);
     listen(); // the mic meter works even without the model
@@ -161,6 +177,7 @@ worker.onmessage = ({ data: m }) => {
     if (m.ayah && m.changed) render(m.ayah.index).then(() => light(m.letter));
     else if (m.ayah && m.ayah.index === shown) light(m.letter);
     if (m.heard !== undefined && m.heard) $('heard').textContent = m.heard;
+    if (m.salah) showPosition(m.salah);
     if ((asrReady || params.has('demo')) && !muted) {
       if (m.state === 'LOCKED') status('following', 'Following');
       else status('listening', 'Listening');
@@ -275,6 +292,22 @@ async function runDemo(spec) {
     }
     await sleep(600);
   }
+  // ?demo=...&rakah: then go through ruku' and the sujood as the imam would.
+  if (params.has('rakah')) {
+    const pace = Number(params.get('pace') || 900);
+    const say = async (text, silent) => {
+      worker.postMessage({ type: 'text', text });
+      for (let k = 0; k < silent; k++) { await sleep(pace); worker.postMessage({ type: 'text', text: '' }); }
+      await sleep(pace);
+    };
+    for (let k = 0; k < 2; k++) { await sleep(pace); worker.postMessage({ type: 'text', text: '' }); }
+    await say('الله اكبر', 4);
+    await say('سمع الله لمن حمده', 3);
+    await say('الله اكبر', 4);
+    await say('الله اكبر', 3);
+    await say('الله اكبر', 4);
+    await say('الله اكبر', 4);
+  }
 }
 
 // ------------------------------------------------------------------ keys and settings
@@ -312,6 +345,8 @@ navigator.mediaDevices?.addEventListener?.('devicechange', fillInputs);
   for (const j of data.juz) js.append(new Option(`Juz ${j.juz} (${j.start[0]}:${j.start[1]})`, `${j.start[0]}:${j.start[1]}`));
   $('cleanup').checked = store.get('cleanup', false);
   $('showTr').checked = store.get('showTr', true);
+  $('showPos').checked = store.get('showPos', true);
+  $('istirahah').checked = store.get('istirahah', false);
   document.body.classList.toggle('no-tr', !$('showTr').checked);
   // Switching the input takes effect straight away, so the meter shows it.
   $('input').onchange = () => { store.set('input', $('input').value); listen(); };
@@ -320,6 +355,11 @@ navigator.mediaDevices?.addEventListener?.('devicechange', fillInputs);
     store.set('input', $('input').value);
     store.set('cleanup', $('cleanup').checked);
     store.set('showTr', $('showTr').checked);
+    store.set('showPos', $('showPos').checked);
+    if (store.get('istirahah', false) !== $('istirahah').checked) {
+      store.set('istirahah', $('istirahah').checked);
+      worker.postMessage({ type: 'salah', istirahah: $('istirahah').checked });
+    }
     document.body.classList.toggle('no-tr', !$('showTr').checked);
     const start = $('startRef').value.trim() || js.value;
     store.set('start', start || null);

@@ -84,3 +84,79 @@ test('tracker: reports how far into the ayah the recitation is', () => {
   assert.ok(grew > 10, `progress moved ${grew} times`);
   assert.ok(last >= text.length - 2, `ended at ${last} of ${text.length}`);
 });
+
+import { Salah } from '../src/engine/salah.js';
+
+test('salah: "الله أكبر" inside an ayah (9:72, 29:45, 40:10) never shows ruku\'', () => {
+  for (const [s, a] of [[9, 72], [29, 45], [40, 10]]) {
+    for (const seed of [1, 2, 3]) {
+      const tr = new Tracker(ix);
+      const salah = new Salah();
+      tr.setStart(s, a - 2);
+      // Recite from two ayat before to two after, as one continuous stream.
+      const from = ix.ayahStart[ix.indexOf(s, a - 2)], to = ix.ayahStart[ix.indexOf(s, a + 2) + 1];
+      const text = ix.letters.slice(from, to);
+      let state = seed;
+      const rand = () => ((state = (state * 1103515245 + 12345) % 2147483648) / 2147483648);
+      const window = [];
+      for (let p = 0; p < text.length; p += 12) {
+        let chunk = '';
+        for (const ch of text.slice(p, p + 12)) chunk += rand() < 0.1 ? 'ب' : ch;
+        window.push(chunk); if (window.length > 4) window.shift();
+        const res = tr.observe(window.join(''), 1 / window.length);
+        if (res.clearAudio) window.length = 0;
+        const v = salah.step(res, 0.6);
+        assert.notEqual(v.position, 'RUKU', `${s}:${a} seed ${seed}`);
+      }
+    }
+  }
+});
+
+test('salah: full rak\'ah sequence from calls', () => {
+  const salah = new Salah();
+  const say = (call) => salah.step({ call, speech: true, heard: '' }, 0.6);
+  const quiet = (n) => { let v; for (let i = 0; i < n; i++) v = salah.step({ speech: false }, 0.6); return v; };
+  const recite = (n) => { let v; for (let i = 0; i < n; i++) v = salah.step({ progressed: true, speech: true, heard: 'x' }, 0.6); return v; };
+  recite(6);
+  say('takbir'); assert.equal(quiet(3).position, 'RUKU');
+  say('tasmi'); assert.equal(quiet(2).position, 'QAWMAH');
+  say('takbir'); assert.equal(quiet(2).position, 'SUJOOD_1');
+  say('takbir'); assert.equal(quiet(2).position, 'JALSAH');
+  say('takbir'); assert.equal(quiet(2).position, 'SUJOOD_2');
+  say('takbir'); const rising = quiet(2);
+  assert.equal(rising.position, 'RISING'); assert.match(rising.note, /2nd/);
+  assert.equal(recite(3).rakah, 2);
+  say('takbir'); quiet(3); say('tasmi'); say('takbir'); quiet(2); say('takbir'); quiet(2); say('takbir'); quiet(2);
+  say('takbir'); assert.equal(quiet(2).position, 'TASHAHHUD');
+  say('salam'); assert.equal(quiet(1).position, 'SALAM');
+  say('takbir'); assert.equal(quiet(1).position, 'QIYAM');
+  assert.equal(salah.view().rakah, 1);
+});
+
+test('salah: a standing takbir followed by more recitation is not ruku\'', () => {
+  const salah = new Salah();
+  for (let i = 0; i < 6; i++) salah.step({ progressed: true, speech: true, heard: 'x' }, 0.6);
+  salah.step({ call: 'takbir', speech: true, heard: '' }, 0.6);
+  for (let i = 0; i < 6; i++) assert.equal(salah.step({ progressed: i > 1, speech: true, heard: 'ولذكراللهاكبر' }, 0.6).position, 'QIYAM');
+});
+
+test('simulated taraweeh: prayer positions follow, no false ruku\'', () => {
+  for (const start of [[2, 142], [29, 40], [40, 6]]) {
+    const r = simulate(data, { errorRate: 0.15, rakahs: 8, seed: 1, start, window: 4 });
+    assert.equal(r.falseRuku, 0, `${start.join(':')}`);
+    assert.ok(r.positionCorrect >= 90, `${start.join(':')}: ${r.positionCorrect}%`);
+  }
+});
+
+test('salah: the real ruku\' takbir right after 29:45 (which contains "الله أكبر") is caught', () => {
+  const tr = new Tracker(ix);
+  const salah = new Salah();
+  tr.setStart(29, 44);
+  const from = ix.ayahStart[ix.indexOf(29, 44)], to = ix.ayahStart[ix.indexOf(29, 45) + 1];
+  const text = ix.letters.slice(from, to);
+  let v;
+  for (let p = 0; p < text.length; p += 12) v = salah.step(tr.push(text.slice(p, p + 12)), 0.6);
+  v = salah.step(tr.push('الله اكبر'), 0.6);
+  for (let k = 0; k < 3; k++) v = salah.step(tr.push(''), 0.6);
+  assert.equal(v.position, 'RUKU');
+});

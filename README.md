@@ -31,6 +31,7 @@
 | 📖 **Arabic + translation** | The current ayah in large Uthmani script, with an English translation underneath. The previous ayah fades out, the next one waits below. |
 | ✨ **Lights up word by word** | Each word lights up as the imam reaches it; the word being recited now glows gold. |
 | 🔁 **Handles real taraweeh** | Copes with repeated ayat, pauses, al-Fatiha at the start of every rak'ah, takbir and ruku'. When it isn't sure, it stays on the last ayah instead of guessing. |
+| 🧎 **Follows the prayer** | After the recitation it shows each position as the imam calls it: ruku', qawmah, sujood, jalsah, the second sujood, then standing for the next rak'ah (or jalsat al-istirahah) or tashahhud and salam. A "الله أكبر" inside an ayah (29:45, 9:72, 40:10) is recognised as recitation, not ruku'. |
 | 🤲 **Dua screen** | During dua and qunut the screen goes calm, then picks up again when the recitation returns. |
 | 🎛 **Manual override** | Next, previous or blank screen from a USB clicker or a phone remote. One tap puts it right if it ever drifts. |
 | 📍 **Start point** | Tell it where tonight begins ("juz 5") and it locks on faster. |
