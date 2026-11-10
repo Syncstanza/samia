@@ -48,6 +48,7 @@ self.onmessage = async ({ data: msg }) => {
         demoHeard = '';
         const r = ix.ref(msg.from);
         tracker.setStart(r.surah, r.ayah);
+        tracker.setBounds(msg.from, msg.to);
         clearAudio();
         if (listener) listener.startRecording();
         return send(tracker._result(true));
@@ -85,6 +86,7 @@ async function endTurn(score = true) {
   if (!turn) return;
   const { from, to } = turn;
   turn = null;
+  tracker.setBounds(null);
   if (!score) { // judged competition: the judges score, not the app
     if (listener) listener.stopRecording();
     return;

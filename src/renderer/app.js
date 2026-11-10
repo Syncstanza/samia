@@ -189,6 +189,8 @@ worker.onmessage = ({ data: m }) => {
     recorder.addUpdate(m);
     if (m.heard) { $('heard').textContent = m.heard; lastSpeechAt = performance.now(); if (screenName === 'turn') spokeInTurn = true; }
     if (!following()) return;
+    // In a turn the screen never leaves the passage (it would go blank).
+    if (screenName === 'turn' && m.ayah && (m.ayah.index < session.from || m.ayah.index > session.to)) return;
     if (m.ayah && m.changed) render(m.ayah.index).then(() => light(m.letter));
     else if (m.ayah && m.ayah.index === shown) light(m.letter);
     if (screenName === 'turn') watchForEnd(m);
