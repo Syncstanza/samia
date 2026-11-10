@@ -31,11 +31,16 @@ export class Listener {
     this.sinceHop = 0;
     this.busy = false;
     this.lastHeard = '';
+    // While still finding the place: what was heard in earlier phrases. Short
+    // ayat ("عم يتساءلون") are too short to place on their own; a few
+    // together are not.
+    this.history = '';
+    this.phrase = '';
     this.recording = null; // array of Float32Array chunks while a turn is recorded
     this.recorded = 0;
   }
 
-  clearAudio() { this.ring = new Float32Array(0); }
+  clearAudio() { this.ring = new Float32Array(0); this.history = ''; this.phrase = ''; }
 
   startRecording() { this.recording = []; this.recorded = 0; }
 
@@ -90,11 +95,21 @@ export class Listener {
       let out;
       if (level <= this.o.minLevel || voice.share < this.o.minVoiced) {
         this.lastHeard = '';
+        if (this.phrase && this.tracker.state !== 'LOCKED') {
+          // A phrase ended while searching: keep its words, start the next
+          // phrase on fresh audio.
+          this.history = (this.history + ' ' + this.phrase).slice(-160);
+          this.ring = new Float32Array(0);
+        }
+        this.phrase = '';
         out = this.tracker.observe('');
       } else {
         const started = performance.now();
         this.lastHeard = await this.asr.transcribe(gain(this.ring, voice.level, this.o));
-        out = this.tracker.observe(this.lastHeard, Math.min(1, hopLen / this.ring.length));
+        this.phrase = this.lastHeard;
+        const searching = this.tracker.state !== 'LOCKED' && this.history;
+        out = this.tracker.observe(searching ? this.history + ' ' + this.lastHeard : this.lastHeard, Math.min(1, hopLen / this.ring.length));
+        if (this.tracker.state === 'LOCKED') this.history = '';
         out.ms = Math.round(performance.now() - started);
       }
       if (out.clearAudio) this.clearAudio();

@@ -207,7 +207,7 @@ body.muted .mic-name::after { content: " (muted)"; color: #ff9a9a; }
 body:not(.screen-home) .home { display: none; }
 body.screen-home #flow, body.screen-home header, body.screen-home .idle,
 body.screen-result #flow, body.screen-board #flow, body.screen-checking #flow { visibility: hidden; }
-body.screen-result header, body.screen-board header, body.screen-checking header { visibility: hidden; }
+body.screen-result header, body.screen-board header, body.screen-checking header, body.screen-judgedDone header { visibility: hidden; }
 
 /* ---------- home ---------- */
 .home {
@@ -308,3 +308,7 @@ i.m-skipped { background: #ff6b6b; } i.m-unread { background: #3b4a4e; }
 #board .place { font-size: 3.6vh; text-align: center; }
 #board .pts { font-weight: 700; font-size: 3.2vh; }
 #board .sub { color: var(--muted); font-size: 1.8vh; }
+
+/* Competition: choose judged (school / masjid) or friends */
+#modesBack { margin-top: 2.5vh; }
+#modesCompetition .mode { max-width: 34vw; }

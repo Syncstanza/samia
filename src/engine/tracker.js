@@ -40,7 +40,9 @@ const DEFAULTS = {
   fwd: 450,            // letters allowed forwards
   ambiguityGap: 0.06,  // top-2 candidates closer than this = ambiguous
   maxGramHits: 1500,   // ignore very common 4-grams when voting
-  coldMinQuery: 30,    // letters needed before a cold-start search may lock
+  coldMinQuery: 30,    // letters needed before a cold-start search may lock...
+  coldShortQuery: 16,  // ...unless at least this many match this clearly
+  coldShortAccept: 0.8,
 };
 
 export class Tracker {
@@ -63,6 +65,19 @@ export class Tracker {
     this.lastAdd = 0;
     this.cleared = false;
     this.offset = 0;
+    this.bounds = null;   // {lo, hi} letter range a turn is limited to
+  }
+
+  /**
+   * Keep to one passage (a competition or hifz turn): global ayah indices
+   * from..to. It never searches the rest of the Quran, so it can't wander off
+   * the passage; when it loses its place it looks again within the passage.
+   * null = no limit.
+   */
+  setBounds(from, to) {
+    if (from == null) { this.bounds = null; return; }
+    const { ayahStart, letters } = this.ix;
+    this.bounds = { lo: ayahStart[from], hi: to + 1 < ayahStart.length ? ayahStart[to + 1] : letters.length };
   }
 
   /** Tell it where the recitation starts (a surah and ayah). */
@@ -115,7 +130,10 @@ export class Tracker {
 
   /** Nothing recognised (silence) for one hop. */
   _silent() {
-    if (++this.silence >= this.o.silenceClear && this.buf) this._clear();
+    // While following, a pause drops what was heard (so the end of one ayah
+    // isn't heard again). While still finding the place, keep it: short ayat
+    // with pauses between them only add up to enough words together.
+    if (++this.silence >= this.o.silenceClear && this.buf && this.state === 'LOCKED') this._clear();
     return this._result(false);
   }
 
@@ -154,6 +172,8 @@ export class Tracker {
     let lo = this.pos - back - q.length;
     let hi = this.pos + this.o.fwd;
     if (inFatiha) { lo = 0; hi = fatihaEnd; }
+    const b = this.bounds;
+    if (b) { lo = Math.max(lo, b.lo); hi = Math.min(hi, b.hi); }
     // 1. Normal case: the reciter carries on from where he was. Prefer the end
     //    just after the last position (what was newly heard), so the
     //    highlight moves word by word and never hops to the same phrase
@@ -183,7 +203,7 @@ export class Tracker {
 
     // Not matching here. A new rak'ah starting with al-Fatiha is the usual reason.
     // Check only the newest letters: older ones are still from before al-Fatiha.
-    if (!inFatiha) {
+    if (!inFatiha && !b) {
       const recent = q.slice(-this.o.fatihaProbe);
       const f = align(recent, letters, 0, fatihaEnd);
       if (f.norm >= this.o.fatihaSwitch) {
@@ -194,6 +214,16 @@ export class Tracker {
     }
 
     this.confidence = Math.max(0, r.norm);
+    if (b) {
+      // Turn: never leave the passage. After a few misses, look for the
+      // reciter anywhere in it (he may have jumped ahead or gone back).
+      if (++this.fails >= this.o.failsToSearch) {
+        this.fails = 0;
+        const w = align(q, letters, b.lo, b.hi, expect);
+        if (w.norm >= this.o.searchAccept) this._accept(w);
+      }
+      return;
+    }
     if (++this.fails >= this.o.failsToSearch) {
       this.state = 'SEARCHING';
       this.pending = null;
@@ -223,7 +253,9 @@ export class Tracker {
       this.offset = Math.min(offset, this.ix.ayahStart[ayah + 1] - this.ix.ayahStart[ayah]);
     }
     this.shown = ayah;
-    if (this.pos > fatihaEnd) {
+    if (this.bounds) {
+      // A turn: just follow within the passage.
+    } else if (this.pos > fatihaEnd) {
       this.khatmPos = this.pos;
     } else if (this.pos >= fatihaEnd - this.o.fatihaTail) {
       // al-Fatiha finished: keep 1:7 on screen and carry on from the khatm
@@ -289,7 +321,12 @@ export class Tracker {
     // khatm position yet (cold start) we're stricter: short ayat repeat across
     // surahs, so wait for three agreeing checks and a fuller buffer.
     const cold = this.khatmPos < 0;
-    if (cold && q.length < this.o.coldMinQuery) return;
+    // A shorter query is enough when it matches very clearly (it's already
+    // known not to fit two places equally well).
+    if (cold && q.length < this.o.coldMinQuery && (q.length < this.o.coldShortQuery || best.norm < this.o.coldShortAccept)) {
+      this.pending = null;
+      return;
+    }
     const needed = cold ? 3 : 2;
     if (this.pending && Math.abs(best.end - this.pending.end) <= q.length + 40) {
       this.pending = { ...best, hits: this.pending.hits + 1 };

@@ -92,3 +92,15 @@ test('live mode with stray room-noise letters: never a wrong ayah in juz 2', () 
     assert.ok(r.wrongVerse <= 0.5, `seed ${seed}: ${r.wrongVerse}% wrong`);
   }
 });
+
+test('a turn never leaves its passage', () => {
+  const tr = new Tracker(ix);
+  const from = ix.indexOf(78, 1), to = ix.indexOf(78, 5);
+  tr.setStart(78, 1);
+  tr.setBounds(from, to);
+  // The reciter goes on into a different surah: the screen must stay in 78:1-5.
+  for (const t of ['عم يتساءلون عن النبا العظيم', 'قل هو الله احد الله الصمد', 'لم يلد ولم يولد ولم يكن له كفوا احد', 'قل اعوذ برب الفلق من شر ما خلق']) {
+    const r = tr.push(t);
+    if (r.ayah) assert.ok(r.ayah.index >= from && r.ayah.index <= to, `left the passage: ${r.ayah.surah}:${r.ayah.ayah}`);
+  }
+});

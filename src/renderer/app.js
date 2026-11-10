@@ -27,10 +27,11 @@ let shown = -1;
 let asrReady = false;
 let capture = null;
 let screenName = 'home';
-let session = null; // competition / hifz: {mode, from, to, hide, reciters: [{name, result}], i}
+let session = null; // turns: {mode: 'judged'|'friends'|'hifz', from, to, hide, reciters: [{name, result}], i}
+const scored = () => session && session.mode !== 'judged';
 
 // ------------------------------------------------------------------ screens
-const SCREENS = ['home', 'free', 'setup', 'ready', 'turn', 'checking', 'result', 'board'];
+const SCREENS = ['home', 'free', 'setup', 'ready', 'turn', 'checking', 'result', 'board', 'judgedDone'];
 function screen(name) {
   screenName = name;
   for (const s of SCREENS) document.body.classList.toggle('screen-' + s, s === name);
@@ -39,6 +40,7 @@ function screen(name) {
   $('checking').hidden = name !== 'checking';
   $('result').hidden = name !== 'result';
   $('scoreboard').hidden = name !== 'board';
+  $('judgedDone').hidden = name !== 'judgedDone';
   $('turnBar').hidden = name !== 'turn';
   document.body.classList.toggle('hide-text', name === 'turn' && !!session?.hide);
   $('turnInfo').textContent = name === 'turn' && session ? session.reciters[session.i].name : '';
@@ -187,6 +189,8 @@ worker.onmessage = ({ data: m }) => {
     recorder.addUpdate(m);
     if (m.heard) { $('heard').textContent = m.heard; lastSpeechAt = performance.now(); if (screenName === 'turn') spokeInTurn = true; }
     if (!following()) return;
+    // In a turn the screen never leaves the passage (it would go blank).
+    if (screenName === 'turn' && m.ayah && (m.ayah.index < session.from || m.ayah.index > session.to)) return;
     if (m.ayah && m.changed) render(m.ayah.index).then(() => light(m.letter));
     else if (m.ayah && m.ayah.index === shown) light(m.letter);
     if (screenName === 'turn') watchForEnd(m);
@@ -233,7 +237,7 @@ function setStart(ref) {
 // ------------------------------------------------------------------ competition / hifz setup
 function openSetup(mode) {
   const last = store.get('session', {});
-  $('setupTitle').textContent = mode === 'hifz' ? 'Hifz test' : 'Competition';
+  $('setupTitle').textContent = { hifz: 'Hifz test', judged: 'School / Masjid competition', friends: 'Friends competition' }[mode];
   const sel = $('pickSurah');
   if (!sel.options.length) {
     for (const s of data.surahs) sel.append(new Option(`${s.n}. ${s.translit} — ${s.name} (${s.ayahs} ayat)`, s.n));
@@ -245,7 +249,7 @@ function openSetup(mode) {
   sel.value = last.surah || 78;
   $('pickFrom').value = last.fromAyah || 1;
   $('pickTo').value = last.toAyah || Math.min(10, data.surahs[sel.value - 1].ayahs);
-  const names = mode === 'hifz' ? (last.hifzNames || ['Reciter 1']) : (last.names || ['Reciter 1', 'Reciter 2']);
+  const names = last[namesKey(mode)] || (mode === 'hifz' ? ['Reciter 1'] : ['Reciter 1', 'Reciter 2']);
   $('reciters').replaceChildren();
   names.forEach(addReciterRow);
   $('hideText').checked = mode === 'hifz';
@@ -253,7 +257,8 @@ function openSetup(mode) {
   passageInfo();
   screen('setup');
 }
-let setupMode = 'competition';
+let setupMode = 'friends';
+const namesKey = (mode) => ({ hifz: 'hifzNames', judged: 'judgedNames' }[mode] || 'names');
 
 function addReciterRow(name = '') {
   const row = document.createElement('div');
@@ -292,7 +297,7 @@ $('setupStart').onclick = () => {
   const p = readPassage();
   const names = [...$('reciters').querySelectorAll('input')].map((i, k) => i.value.trim() || `Reciter ${k + 1}`);
   const last = store.get('session', {});
-  store.set('session', { ...last, surah: p.s, fromAyah: p.a1, toAyah: p.a2, [setupMode === 'hifz' ? 'hifzNames' : 'names']: names });
+  store.set('session', { ...last, surah: p.s, fromAyah: p.a1, toAyah: p.a2, [namesKey(setupMode)]: names });
   session = { mode: setupMode, from: p.from, to: p.to, hide: $('hideText').checked, reciters: names.map((name) => ({ name })), i: 0 };
   showReady();
 };
@@ -300,7 +305,7 @@ $('setupStart').onclick = () => {
 // ------------------------------------------------------------------ turns
 function showReady() {
   const r = session.reciters[session.i];
-  $('readyCount').textContent = session.reciters.length > 1 ? `Reciter ${session.i + 1} of ${session.reciters.length}` : (session.mode === 'hifz' ? 'Hifz test' : 'Recitation');
+  $('readyCount').textContent = session.reciters.length > 1 ? `Reciter ${session.i + 1} of ${session.reciters.length}` : ({ hifz: 'Hifz test', judged: 'Competition' }[session.mode] || 'Recitation');
   $('readyName').textContent = r.name;
   $('readyPassage').textContent = refLabel(session.from, session.to) + (session.hide ? ' · text hidden' : '');
   screen('ready');
@@ -340,13 +345,22 @@ function endTurn() {
   if (screenName !== 'turn') return;
   clearInterval(clockTimer);
   session.reciters[session.i].seconds = Math.round((performance.now() - turnStarted) / 1000);
+  if (!scored()) {
+    // Judged: the judges score. Straight on to the next reciter.
+    worker.postMessage({ type: 'turnEnd', score: false });
+    if (session.i < session.reciters.length - 1) { session.i++; showReady(); return; }
+    $('judgedCount').textContent = `${refLabel(session.from, session.to)} · ${session.reciters.length} reciter${session.reciters.length > 1 ? 's' : ''}`;
+    screen('judgedDone');
+    $('judgedAgain').focus();
+    return;
+  }
   $('checkBar').style.width = '0%';
   screen('checking');
   worker.postMessage({ type: 'turnEnd' });
 }
 
 function showResult(r) {
-  if (!session) return;
+  if (!scored() || screenName !== 'checking') return;
   const who = session.reciters[session.i];
   who.result = r;
   $('resultWho').textContent = `${who.name} · ${refLabel(session.from, session.to)} · ${Math.floor(who.seconds / 60)}:${String(who.seconds % 60).padStart(2, '0')}`;
@@ -414,15 +428,30 @@ function showBoard() {
 }
 $('boardAgain').onclick = () => openSetup(session.mode);
 $('boardHome').onclick = goHome;
+$('judgedAgain').onclick = () => openSetup('judged');
+$('judgedHome').onclick = goHome;
 
 function goHome() {
-  if (screenName === 'turn') { clearInterval(clockTimer); worker.postMessage({ type: 'turnEnd' }); }
+  if (screenName === 'turn') { clearInterval(clockTimer); worker.postMessage({ type: 'turnEnd', score: false }); }
   session = null;
+  showModes('main');
   screen('home');
 }
-for (const b of document.querySelectorAll('.mode')) {
-  b.onclick = () => (b.dataset.mode === 'free' ? startFree() : openSetup(b.dataset.mode));
+function showModes(which) {
+  $('modesMain').hidden = which !== 'main';
+  $('modesCompetition').hidden = which !== 'competition';
+  $('modesBack').hidden = which === 'main';
+  document.querySelector(`#modes${which === 'main' ? 'Main' : 'Competition'} .mode`).focus();
 }
+for (const b of document.querySelectorAll('.mode')) {
+  b.onclick = () => {
+    const m = b.dataset.mode;
+    if (m === 'free') startFree();
+    else if (m === 'competition') showModes('competition');
+    else openSetup(m);
+  };
+}
+$('modesBack').onclick = () => showModes('main');
 
 // ------------------------------------------------------------------ microphone
 async function listen() {
@@ -568,7 +597,7 @@ document.addEventListener('keydown', (e) => {
     case 'S': if (e.ctrlKey && e.shiftKey) { recorder.save(); break; } openSettings(); break;
     case 's': openSettings(); break;
     case 'b': case 'B': case '.': $('blank').classList.toggle('on'); break;
-    case 'Escape': closeSettings(); $('blank').classList.remove('on'); break;
+    case 'Escape': closeSettings(); $('blank').classList.remove('on'); if (screenName === 'home' && !$('modesCompetition').hidden) showModes('main'); break;
     case 'f': case 'F': document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); break;
   }
 });
