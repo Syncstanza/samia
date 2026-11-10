@@ -187,6 +187,7 @@ worker.onmessage = ({ data: m }) => {
     if (!asrReady) status('manual', 'No speech model');
   } else if (m.type === 'update') {
     recorder.addUpdate(m);
+    if (screenName === 'free' && shown < 0) $('idleHeard').textContent = m.heard ? m.heard.split(' ').slice(-6).join(' ') : $('idleHeard').textContent;
     if (m.heard) { $('heard').textContent = m.heard; lastSpeechAt = performance.now(); if (screenName === 'turn') spokeInTurn = true; }
     if (!following()) return;
     // In a turn the screen never leaves the passage (it would go blank).
@@ -223,6 +224,7 @@ function startFree() {
   for (const id of ['prev', 'current', 'next']) $(id).replaceChildren();
   $('surahAr').textContent = ''; $('surahEn').textContent = ''; $('juz').textContent = '';
   $('idleText').textContent = 'Start reciting… Sami\'a will find where you are.';
+  $('idleHeard').textContent = '';
   document.body.classList.add('idle-on');
   worker.postMessage({ type: 'reset' });
 }

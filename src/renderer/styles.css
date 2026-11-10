@@ -113,6 +113,9 @@ body.no-tr .ayah.current .tr { display: none; }
 .idle img, .overlay img { width: 14vh; height: 14vh; border-radius: 22%; box-shadow: 0 0 60px rgba(34, 227, 210, 0.25); }
 .idle h1 { margin: 1vh 0 0; font-weight: 600; font-size: 5vh; letter-spacing: 0.02em; }
 .idle p { margin: 0; color: var(--muted); font-size: 2.4vh; }
+/* Free recite, still finding the place: the words being heard, so it's clearly listening */
+.idle .idle-heard { min-height: 6vh; margin-top: 2vh; font-family: 'Amiri Quran', serif; font-size: 4vh; color: rgba(245, 184, 46, 0.85); transition: opacity .3s; }
+.idle .idle-heard:empty { opacity: 0; }
 body:not(.idle-on) .idle { opacity: 0; pointer-events: none; }
 body.idle-on #flow, body.idle-on header .surah, body.idle-on .juz { visibility: hidden; }
 

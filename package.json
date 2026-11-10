@@ -1,8 +1,8 @@
 {
   "name": "samia",
   "productName": "Sami'a",
-  "version": "0.0.1",
-  "description": "Live Quran recitation display for masjids. Free and offline.",
+  "version": "1.0.0",
+  "description": "Quran recitation karaoke for masjids, schools and friends: free recite, competitions and hifz tests. Free and offline.",
   "author": {
     "name": "Syncstanza",
     "email": "200555248+MarineG094@users.noreply.github.com"
@@ -79,7 +79,7 @@
       "icon": "build/icon.png",
       "category": "Utility",
       "maintainer": "Syncstanza <200555248+MarineG094@users.noreply.github.com>",
-      "synopsis": "Live Quran recitation display for masjids",
+      "synopsis": "Quran recitation karaoke for masjids, schools and friends",
       "artifactName": "Samia-${version}.${ext}"
     }
   }

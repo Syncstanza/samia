@@ -8,17 +8,26 @@
 
 **Quran karaoke for masjids, classes and friends. Sami'a listens as you recite, lights up each word on the big screen, and scores how well you read it. Recite freely, run a competition, or test your hifz. Free and fully offline.**
 
-![Status](https://img.shields.io/badge/status-in%20development-f5b82e)
+[![Release](https://img.shields.io/github/v/release/Syncstanza/samia?color=f5b82e)](https://github.com/Syncstanza/samia/releases/latest)
 ![Offline](https://img.shields.io/badge/works-100%25%20offline-7ee36b)
-![Windows](https://img.shields.io/badge/Windows-planned-0078d4)
-![Linux](https://img.shields.io/badge/Linux-planned-fcc624)
+![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)
+![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624)
 ![License](https://img.shields.io/badge/license-Apache--2.0-lightgrey)
 
 </div>
 
 ---
 
-> 🚧 **Sami'a is in development.** There is no public download yet. Features marked *later* are planned after the first release.
+## ⬇️ Download
+
+**[Get the latest version →](https://github.com/Syncstanza/samia/releases/latest)**
+
+| You have | Download |
+|---|---|
+| Windows 10 / 11 | `Samia-Setup-x.y.z.exe` (installer) or `Samia-x.y.z.exe` (no install) |
+| Linux | `Samia-x.y.z.AppImage` |
+
+Windows may say "Windows protected your PC" because the app isn't signed yet: click **More info → Run anyway**.
 
 ---
 
@@ -69,7 +78,7 @@
 
 ---
 
-## 🧪 Try the development version
+## 🧪 Run from source
 
 Needs [Node.js 22+](https://nodejs.org). In the project folder:
 
