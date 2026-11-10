@@ -41,7 +41,7 @@ jobs:
           npm ci
           npm run model
           npm version "0.1.$GITHUB_RUN_NUMBER-dev" --no-git-tag-version --allow-same-version
-          npx electron-builder --win portable -c.productName="Samia DEV" -c.appId=com.syncstanza.samia.dev '-c.portable.artifactName=Samia-DEV-${version}.exe'
+          npx electron-builder --publish never --win portable -c.productName="Samia DEV" -c.appId=com.syncstanza.samia.dev '-c.portable.artifactName=Samia-DEV-${version}.exe'
       - name: Publish as the private "dev-windows" draft
         shell: bash
         env:
@@ -64,7 +64,7 @@ jobs:
           npm ci
           npm run model
           npm version "0.1.$GITHUB_RUN_NUMBER-dev" --no-git-tag-version --allow-same-version
-          npx electron-builder --linux AppImage -c.productName="Samia DEV" -c.appId=com.syncstanza.samia.dev '-c.linux.artifactName=Samia-DEV-${version}.${ext}'
+          npx electron-builder --publish never --linux AppImage -c.productName="Samia DEV" -c.appId=com.syncstanza.samia.dev '-c.linux.artifactName=Samia-DEV-${version}.${ext}'
       - name: Publish as the private "dev-linux" draft
         env:
           GH_TOKEN: ${{ github.token }}
