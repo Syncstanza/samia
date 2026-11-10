@@ -7,6 +7,9 @@
 
 import { startCapture, listInputs, micError } from './capture.js';
 import { normalize } from '/src/engine/normalize.js';
+import { TestRecorder } from './recorder.js';
+
+const recorder = new TestRecorder();
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -174,6 +177,7 @@ worker.onmessage = ({ data: m }) => {
     listen(); // the mic meter works even without the model
     if (!asrReady) status('manual', 'Manual: no speech model');
   } else if (m.type === 'update') {
+    recorder.addUpdate(m);
     if (m.ayah && m.changed) render(m.ayah.index).then(() => light(m.letter));
     else if (m.ayah && m.ayah.index === shown) light(m.letter);
     if (m.heard !== undefined && m.heard) $('heard').textContent = m.heard;
@@ -221,6 +225,7 @@ function openMic(deviceId) {
   return startCapture({ deviceId, cleanup: store.get('cleanup', false) }, (chunk) => {
     if (muted) return;
     showLevel(chunk);
+    recorder.addAudio(chunk);
     if (asrReady) worker.postMessage({ type: 'audio', samples: chunk }, [chunk.buffer]);
   });
 }
@@ -371,6 +376,7 @@ navigator.mediaDevices?.addEventListener?.('devicechange', fillInputs);
     listen();
   };
   $('close').onclick = closeSettings;
+  $('saveTest').onclick = () => { recorder.save(); $('saveTest').textContent = 'Saved to your Downloads folder'; setTimeout(() => { $('saveTest').textContent = 'Save test recording (last 2 min)'; }, 4000); };
 })();
 
 document.addEventListener('keydown', (e) => {
@@ -379,9 +385,10 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowRight': case 'PageDown': worker.postMessage({ type: 'next' }); break; // most clickers send these
     case 'ArrowLeft': case 'PageUp': worker.postMessage({ type: 'prev' }); break;
     case 'm': case 'M': setMuted(!muted); break;
+    case 'S': if (e.ctrlKey && e.shiftKey) { recorder.save(); break; } openSettings(); break;
     case 'd': case 'D': toggle('dua'); break;
     case 'b': case 'B': case '.': toggle('blank'); break;
-    case 's': case 'S': openSettings(); break;
+    case 's': openSettings(); break;
     case 'Escape': closeSettings(); $('dua').classList.remove('on'); $('blank').classList.remove('on'); break;
     case 'f': case 'F': document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); break;
   }

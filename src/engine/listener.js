@@ -8,6 +8,8 @@
 
 import { followHop } from './follow.js';
 import { Utterances } from './utterances.js';
+import { classifyUtterance } from './calls.js';
+import { normalize } from './normalize.js';
 
 export const SR = 16000;
 
@@ -18,6 +20,10 @@ const DEFAULTS = {
   minVoiced: 0.12,    // share of a hop that must be voice to count as speech
   targetLevel: 0.08,  // the VOICE (not the room) is brought up to about this level
   maxGain: 12,
+  history: 10,        // seconds of audio kept to re-hear single utterances
+  callMin: 0.3,       // an utterance this long ... (seconds)
+  callMax: 4.5,       // ... up to this long may be a call
+  callGapAfter: 0.25, // silence after it before it is checked
 };
 
 export class Listener {
@@ -33,6 +39,10 @@ export class Listener {
     this.salah = salah;
     this.utterances = new Utterances(SR);
     this.ring = new Float32Array(0);
+    this.hist = new Float32Array(Math.round(this.o.history * SR)); // last few seconds, for single utterances
+    this.histFill = 0;
+    this.checked = new Set();   // utterance ids already checked
+    this.lastCallAt = -10;      // when the last call was taken (utterance clock, seconds)
     this.sinceHop = 0;
     this.busy = false;
     this.lastHeard = '';
@@ -47,6 +57,11 @@ export class Listener {
    */
   async add(samples, onUpdate) {
     this.utterances.add(samples);
+    // keep the last few seconds
+    const h = this.hist, n = samples.length;
+    if (n >= h.length) h.set(samples.subarray(n - h.length));
+    else { h.copyWithin(0, n); h.set(samples, h.length - n); }
+    this.histFill = Math.min(h.length, this.histFill + n);
     const max = Math.round(this.o.window * SR);
     const next = new Float32Array(Math.min(max, this.ring.length + samples.length));
     const keep = next.length - samples.length;
@@ -75,25 +90,59 @@ export class Listener {
       // boosted hiss came out as stray letters, which hid the silence after a
       // takbir and looked like takbirs in sujood.
       const voice = this.utterances.voiced(this.o.hop);
+      // A call said as its own utterance (pause before and after) is heard on
+      // its own, so it is clear whatever came before or after it.
+      const call = await this._callUtterance();
       let out;
       if (level <= this.o.minLevel || voice.share < this.o.minVoiced) {
         this.lastHeard = '';
-        out = followHop(this.tracker, this.salah, { text: '', dt: this.o.hop });
+        out = followHop(this.tracker, this.salah, { text: '', dt: this.o.hop, call });
       } else {
         const started = performance.now();
         this.lastHeard = await this.asr.transcribe(this._gain(this.ring, voice.level));
         // How the latest stretch of speech was said (pause before it, length).
         const utter = this.utterances.latest();
         out = followHop(this.tracker, this.salah, {
-          text: this.lastHeard, newFraction: Math.min(1, hopLen / this.ring.length), dt: this.o.hop, utter,
+          text: this.lastHeard, newFraction: Math.min(1, hopLen / this.ring.length), dt: this.o.hop, utter, call,
         });
         out.ms = Math.round(performance.now() - started);
       }
+      if (out.call) this.lastCallAt = this.utterances.t;
       if (out.clearAudio) this.clearAudio();
-      return { ...out, heard: this.lastHeard, level };
+      return { ...out, heard: this.lastHeard, level, utteranceCall: call };
     } finally {
       this.busy = false;
     }
+  }
+
+  /** Check utterances that just ended: is one of them a call? */
+  async _callUtterance() {
+    const u = this.utterances;
+    for (const x of u.finished(this.o.callGapAfter)) {
+      if (this.checked.has(x.id)) continue;
+      this.checked.add(x.id);
+      const dur = x.end - x.start;
+      if (dur < this.o.callMin || dur > this.o.callMax) continue;
+      // Already taken from the running transcript? Don't count it twice.
+      if (this.lastCallAt >= x.start - 0.2 && this.lastCallAt <= x.end + 0.8) continue;
+      const from = Math.round((u.t - x.start + 0.1) * SR), to = Math.round((u.t - x.end - 0.1) * SR);
+      if (from > this.histFill || to < 0) continue;
+      const h = this.hist;
+      const audio = h.subarray(h.length - from, h.length - Math.max(0, to));
+      const letters = normalize(await this.asr.transcribe(this._gain(audio, this._voiceLevel(audio))));
+      const found = classifyUtterance(letters);
+      if (!found) continue;
+      // "الله أكبر" / "أمين" that the ayah itself is about to say is recitation.
+      if (this.tracker._inAyahType && this.tracker._inAyahType(found.type)) continue;
+      return { type: found.type, utter: { dur, gapBefore: x.gapBefore, gapAfter: u.t - x.end, standalone: true }, letters };
+    }
+    return null;
+  }
+
+  _voiceLevel(audio) {
+    let sum = 0;
+    for (let i = 0; i < audio.length; i++) sum += audio[i] * audio[i];
+    return Math.sqrt(sum / Math.max(1, audio.length)) * 1.4; // whole utterance, voice-heavy
   }
 
   // Quiet mics are scaled up so the model hears a normal level. The gain comes

@@ -190,11 +190,20 @@ export class Tracker {
     return null;
   }
 
+  /** Is this call's phrase what the ayah says next? (type: 'takbir', ...) */
+  _inAyahType(type) {
+    const c = CALLS.find((x) => x.type === type);
+    return !!c && this._inAyah(c.norm);
+  }
+
   /** Do the words around the imam's position contain this phrase? */
   _inAyah(phrase) {
     if (this.state !== 'LOCKED' || this.pos < 0) return false;
     const { letters } = this.ix;
-    const lo = this.pos - this.o.callBack, hi = this.pos + this.o.callAhead;
+    // Look back far enough to cover the phrase being said right now (the
+    // tracker may already be partway into it), but not so far that it sees
+    // words already finished (29:45 has "الله أكبر" ~25 letters before its end).
+    const lo = this.pos - Math.max(this.o.callBack, phrase.length + 4), hi = this.pos + this.o.callAhead;
     // Exact test on the Quran text itself: "الله" is everywhere, so a loose
     // match would hide real takbirs.
     return letters.slice(Math.max(0, lo), Math.min(letters.length, hi)).includes(phrase);

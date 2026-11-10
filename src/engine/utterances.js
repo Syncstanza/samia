@@ -21,7 +21,8 @@ export class Utterances {
     this.t = 0;              // seconds of audio seen
     this.cur = null;         // {start, lastVoice}
     this.prevEnd = -10;      // end of the previous utterance
-    this.done = [];          // finished utterances {start, end, gapBefore}
+    this.done = [];          // finished utterances {start, end, gapBefore, id}
+    this.ids = 0;
   }
 
   add(samples) {
@@ -53,7 +54,7 @@ export class Utterances {
       else this.cur.lastVoice = now;
     } else if (this.cur && now - this.cur.lastVoice > JOIN_GAP) {
       const end = this.cur.lastVoice + FRAME;
-      this.done.push({ start: this.cur.start, end, gapBefore: this.cur.start - this.prevEnd });
+      this.done.push({ start: this.cur.start, end, gapBefore: this.cur.start - this.prevEnd, id: ++this.ids });
       if (this.done.length > 20) this.done.shift();
       this.prevEnd = end;
       this.cur = null;
@@ -79,6 +80,11 @@ export class Utterances {
     let count = 0, sum = 0;
     for (let i = log.length - n; i < log.length; i++) if (log[i] > 0) { count++; sum += log[i]; }
     return { share: n ? count / n : 0, level: count ? sum / count : 0 };
+  }
+
+  /** Utterances that ended at least `after` seconds ago (silence after them). */
+  finished(after) {
+    return this.done.filter((u) => this.t - u.end >= after);
   }
 
   /** The utterance being spoken now, or the one that just ended. */

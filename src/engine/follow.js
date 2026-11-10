@@ -11,8 +11,15 @@
 //               underneath, so it can find al-Fatiha or the khatm again even
 //               if a takbir was missed and the positions got out of step.
 
-export function followHop(tracker, salah, { text = '', newFraction = 1, dt = 0.6, utter = null, push = false } = {}) {
-  const res = push ? tracker.push(text) : tracker.observe(text, newFraction);
+export function followHop(tracker, salah, { text = '', newFraction = 1, dt = 0.6, utter = null, push = false, call = null } = {}) {
+  let res = push ? tracker.push(text) : tracker.observe(text, newFraction);
+  // A call heard as its own utterance (see Listener) counts even when the
+  // running transcript missed it. The tracker forgets those letters.
+  if (call && !res.call) {
+    tracker._clear();
+    res = { ...res, call: call.type, clearAudio: true };
+    utter = call.utter;
+  }
   const view = salah.step(res, dt, utter);
 
   if (view.position !== 'QIYAM') {

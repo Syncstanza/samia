@@ -1,5 +1,6 @@
 // Electron entry: starts the local server and opens the display full screen.
 import { app, BrowserWindow, session } from 'electron';
+import { join } from 'node:path';
 import { startServer } from '../server.js';
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -13,6 +14,11 @@ async function open() {
   // Also answer "may I?" checks, so the input list shows real microphone names.
   session.defaultSession.setPermissionCheckHandler((wc, permission, origin) => {
     return permission === 'media' && ours(origin || (wc && wc.getURL()));
+  });
+
+  // Test recordings go straight to the Downloads folder.
+  session.defaultSession.on('will-download', (event, item) => {
+    item.setSavePath(join(app.getPath('downloads'), item.getFilename()));
   });
 
   const server = await startServer(0);

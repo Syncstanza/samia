@@ -71,7 +71,8 @@ const DEFAULTS = {
   burstLetters: 3,     // a burst needs at least this many letters heard
   burstLike: 0.4,      // ...and must look at least this much like the expected call
   recitationLetters: 26,
-  staleSilence: 4,       // seconds of silence while standing that reset "has recited" // this much speech in ruku'/sujood = reciting again       // seconds before a position can change on unrecognised speech
+  resumeLetters: 8,      // after rising: this much non-call speech = reciting
+  staleSilence: 8,       // seconds of silence while standing that reset "has recited" // this much speech in ruku'/sujood = reciting again       // seconds before a position can change on unrecognised speech
   qawmahTakbir: 0.4,   // how takbir-like a burst in qawmah must be       // hops of recitation in a qiyam before a takbir can mean ruku'
   istirahah: false,    // the imam sits briefly before rising (jalsat al-istirahah)
   istirahahSeconds: 2.5,
@@ -99,7 +100,9 @@ export class Salah {
     const before = this.position;
     this.since += dt;
     const reciting = !!res.progressed;
-    this.reciteRun = reciting ? this.reciteRun + 1 : 0;
+    // Recitation in 2 of the last 4 hops (slow tarteel doesn't move every hop).
+    this.recent = [...(this.recent || []), reciting].slice(-4);
+    this.reciteRun = this.recent.filter(Boolean).length;
     if (reciting && this.position === 'QIYAM') this.recited++;
     // A long silence while "standing" means we're not really mid-recitation
     // (a missed salam or movement, then tashahhud or the silent opening dua):
@@ -124,8 +127,13 @@ export class Salah {
     // while bowing or prostrating means the imam is reciting again.
     const longSpeech = heard.length >= this.o.recitationLetters;
 
+    // After rising (or in tashahhud / after salam) the next thing he says
+    // that isn't a call is the recitation, so a few letters are enough.
+    const expectRecitation = ['RISING', 'JALSAT_ISTIRAHAH', 'SALAM'].includes(this.position);
+    const startedReciting = expectRecitation && res.speech && !res.call && heard.length >= this.o.resumeLetters;
+
     if (res.call) this._onCall(res.call);
-    else if (this.position !== 'QIYAM' && (this.reciteRun >= this.o.resumeHops || (longSpeech && this.position !== 'QAWMAH'))) this._onRecitation();
+    else if (this.position !== 'QIYAM' && (this.reciteRun >= this.o.resumeHops || startedReciting || (longSpeech && this.position !== 'QAWMAH'))) this._onRecitation();
     else if (burst && !longSpeech && this.since >= this.o.minDwell) this._onBurst(heard);
 
     if (this.position === 'JALSAT_ISTIRAHAH' && this.since >= this.o.istirahahSeconds) this._go('RISING');
@@ -176,6 +184,9 @@ export class Salah {
       // a takbir run on from the recitation is the ayah itself.
       if (u && !paused) return;
       this.pending = { t: 0, need: this.o.takbirSilenceRisky };
+    } else if (u && u.standalone) {
+      // Said as its own utterance and already followed by silence.
+      this.pending = { t: 0, need: Math.max(0, this.o.takbirSilenceClear - (u.gapAfter || 0)) };
     } else if (paused && drawnOut) {
       this.pending = { t: 0, need: this.o.takbirSilenceClear };
     } else {
@@ -204,7 +215,10 @@ export class Salah {
 
   _onRecitation() {
     // Recitation after a rise or a salam starts the next rak'ah.
-    if (this.position === 'RISING' || this.position === 'JALSAT_ISTIRAHAH') this.rakah += 1;
+    // Recitation straight after the second sujood: the rising takbir was
+    // missed, but he is standing for the next rak'ah all the same.
+    if (this.position === 'RISING' || this.position === 'JALSAT_ISTIRAHAH' ||
+        (this.position === 'SUJOOD_2' && this.rakah % 2 === 1)) this.rakah += 1;
     // After tashahhud, recitation means the salam was missed: a new set begins.
     else if (this.position === 'SALAM' || this.position === 'TASHAHHUD') this.rakah = 1;
     this.pending = null;
