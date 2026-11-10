@@ -27,9 +27,10 @@
 | | |
 |---|---|
 | 🎤 **Free recite** | Just start reciting anywhere in the Quran. Sami'a finds the ayah and follows along, lighting up each word as you reach it. |
-| 🏆 **Competition** | Pick a passage, add the reciters' names, and each one takes a turn. Everyone gets a score and a scoreboard ranks them at the end. |
+| 🕌 **School / Masjid competition** | For judged events. Each reciter takes a turn on the chosen passage while the audience follows every word on the big screen. No scores are shown: the judges decide. |
+| 🏆 **Friends competition** | Take turns on a passage. Sami'a scores everyone and a scoreboard ranks them at the end. |
 | 🧠 **Hifz test** | The text is hidden. Words only appear once you've recited them, so you can check your memorisation without peeking. |
-| 💯 **Accuracy score** | After each turn you get a percentage and the whole passage with every word marked: ✅ correct, 🟡 check (said differently), ❌ skipped, ⚪ not reached. |
+| 💯 **Accuracy score** | In Friends and Hifz test, after each turn you get a percentage and the whole passage with every word marked: ✅ correct, 🟡 check (said differently), ❌ skipped, ⚪ not reached. |
 | 📖 **Arabic + translation** | Large Uthmani script with an English translation underneath. |
 | 🎛 **Easy controls** | Mouse, keyboard or a USB presenter clicker. Controls hide until you move the mouse. |
 | 📶 **No internet needed** | Speech recognition runs on the computer itself. |
@@ -52,10 +53,10 @@
 ## 🕹 How a turn works
 
 1. Choose a mode on the home screen.
-2. For Competition or Hifz test, pick the surah and ayat, and add names.
+2. **Competition** asks: *School / Masjid* (judged) or *Friends* (scored). For a competition or Hifz test, pick the surah and ayat, and add names.
 3. Press **Start** (or <kbd>Space</kbd>) and recite. The clock runs and words light up.
 4. Press **Done** (or <kbd>Enter</kbd>), or just stop: it ends by itself after the last ayah.
-5. A few seconds later the score and marked words appear. Next reciter, or see the scoreboard.
+5. Judged: it goes straight to the next reciter. Friends / Hifz: a few seconds later the score and marked words appear, then the next reciter or the scoreboard.
 
 ---
 

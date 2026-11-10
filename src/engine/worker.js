@@ -6,7 +6,7 @@
 //               {type:'text', text}                 (demo / testing without a model)
 //               {type:'start', surah, ayah} | {type:'next'} | {type:'prev'} | {type:'jump', index} | {type:'reset'}
 //               {type:'turnStart', from, to}        (global ayah indices of the passage)
-//               {type:'turnEnd'}                    (stop and score the turn)
+//               {type:'turnEnd', score}             (stop the turn; score it unless score === false)
 // Messages out: {type:'ready', asr} | {type:'error', message}
 //               {type:'update', state, ayah, letter, changed, heard, level}
 //               {type:'scoring', progress} | {type:'score', result}
@@ -52,7 +52,7 @@ self.onmessage = async ({ data: msg }) => {
         if (listener) listener.startRecording();
         return send(tracker._result(true));
       }
-      case 'turnEnd': return await endTurn();
+      case 'turnEnd': return await endTurn(msg.score !== false);
     }
   } catch (e) {
     post({ type: 'error', message: String(e && e.message || e) });
@@ -81,10 +81,14 @@ async function init({ modelUrl, tokensUrl, dataUrl }) {
   post({ type: 'ready', asr: !!asr });
 }
 
-async function endTurn() {
+async function endTurn(score = true) {
   if (!turn) return;
   const { from, to } = turn;
   turn = null;
+  if (!score) { // judged competition: the judges score, not the app
+    if (listener) listener.stopRecording();
+    return;
+  }
   const passage = buildPassage(data, from, to);
   let heard = demoHeard;
   if (listener) {

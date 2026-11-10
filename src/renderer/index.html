@@ -52,7 +52,7 @@
       <img class="home-logo" src="/docs/logo.png" alt="">
       <h1>Sami'a</h1>
       <p class="tagline">Recite. The Quran follows you, word by word.</p>
-      <div class="modes">
+      <div class="modes" id="modesMain">
         <button class="mode" data-mode="free">
           <span class="mode-icon">🎙</span>
           <b>Free recite</b>
@@ -61,7 +61,7 @@
         <button class="mode" data-mode="competition">
           <span class="mode-icon">🏆</span>
           <b>Competition</b>
-          <span>Reciters take turns on a passage. Scores and a scoreboard.</span>
+          <span>Reciters take turns on a passage. Judged by people, or scored by Sami'a.</span>
         </button>
         <button class="mode" data-mode="hifz">
           <span class="mode-icon">📖</span>
@@ -69,6 +69,19 @@
           <span>The text stays hidden and appears as you recite from memory.</span>
         </button>
       </div>
+      <div class="modes" id="modesCompetition" hidden>
+        <button class="mode" data-mode="judged">
+          <span class="mode-icon">🕌</span>
+          <b>School / Masjid</b>
+          <span>Judges listen and score. The screen just shows the audience each reciter's ayat, word by word. No scores on screen.</span>
+        </button>
+        <button class="mode" data-mode="friends">
+          <span class="mode-icon">🏆</span>
+          <b>Friends</b>
+          <span>Sami'a scores every reciter and ranks everyone on a scoreboard.</span>
+        </button>
+      </div>
+      <button class="ghost" id="modesBack" hidden>Back</button>
       <p class="home-keys">Settings: <kbd>S</kbd> · Full screen: <kbd>F</kbd></p>
     </section>
 
@@ -138,6 +151,17 @@
       <div class="buttons center">
         <button id="resultNext">Next reciter</button>
         <button class="ghost" id="resultRetry">Try again</button>
+      </div>
+    </section>
+
+    <!-- Judged competition: all reciters done -->
+    <section class="card turn-ready" id="judgedDone" hidden>
+      <p class="small-caps" id="judgedCount"></p>
+      <h2>All reciters are done</h2>
+      <p>Over to the judges. جزاكم الله خيرا</p>
+      <div class="buttons center">
+        <button id="judgedAgain">New round</button>
+        <button class="ghost" id="judgedHome">Home</button>
       </div>
     </section>
 
