@@ -29,7 +29,7 @@
 |---|---|
 | 🎧 **Follows the imam** | Listens to the recitation and works out which surah and ayah is being read, live. |
 | 📖 **Arabic + translation** | The current ayah in large Uthmani script, with an English translation underneath. The previous ayah fades out, the next one waits below. |
-| ✨ **Highlights as he recites** | The ayah being recited glows. Word-by-word highlighting comes *later*. |
+| ✨ **Lights up word by word** | Each word lights up as the imam reaches it; the word being recited now glows gold. |
 | 🔁 **Handles real taraweeh** | Copes with repeated ayat, pauses, al-Fatiha at the start of every rak'ah, takbir and ruku'. When it isn't sure, it stays on the last ayah instead of guessing. |
 | 🤲 **Dua screen** | During dua and qunut the screen goes calm, then picks up again when the recitation returns. |
 | 🎛 **Manual override** | Next, previous or blank screen from a USB clicker or a phone remote. One tap puts it right if it ever drifts. |
@@ -87,7 +87,7 @@ npm start            # opens Sami'a full screen and starts listening
 ```
 
 `npm run start:window` opens it in a normal window. Recite into your microphone and the screen follows.
-Press <kbd>S</kbd> for settings (audio input, tonight's start point), <kbd>→</kbd>/<kbd>←</kbd> to move by hand, <kbd>D</kbd> for the dua screen, <kbd>B</kbd> to blank it, <kbd>Esc</kbd> to close.
+Move the mouse to show the controls (they hide again after 3 seconds). Keys: <kbd>S</kbd> settings (audio input, tonight's start point), <kbd>→</kbd>/<kbd>←</kbd> move by hand, <kbd>M</kbd> mute, <kbd>D</kbd> dua screen, <kbd>B</kbd> blank, <kbd>Esc</kbd> close.
 
 No microphone handy? `npm run serve`, then open `http://localhost:4173/?demo=2:255-2:257` to watch it follow a simulated recitation.
 

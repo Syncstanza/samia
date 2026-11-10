@@ -56,6 +56,22 @@
       <span>Quran text: Tanzil.net · Translation: Saheeh International</span>
     </footer>
 
+    <nav class="controls" id="controls" aria-label="Controls">
+      <button id="btnPrev" title="Previous ayah (←)"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg></button>
+      <button id="btnNext" title="Next ayah (→)"><svg viewBox="0 0 24 24"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg></button>
+      <span class="sep"></span>
+      <button id="btnMute" class="mute" title="Mute (M)" aria-pressed="false">
+        <svg class="on" viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12z"/></svg>
+        <svg class="off" viewBox="0 0 24 24"><path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5a3 3 0 0 0-6 0v.18zM4.27 3 3 4.27l6.01 6.01V11a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52A5.3 5.3 0 0 1 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73z"/></svg>
+        <span>Mute</span>
+      </button>
+      <button id="btnDua" title="Dua screen (D)"><span>Dua</span></button>
+      <button id="btnBlank" title="Blank screen (B)"><span>Blank</span></button>
+      <span class="sep"></span>
+      <button id="btnSettings" title="Settings (S)"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.9a7 7 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7 7 0 0 0 1.7 1L11 21h4l.4-2.9a7 7 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
+      <button id="btnFull" title="Full screen (F)"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg></button>
+    </nav>
+
     <div class="overlay" id="dua">
       <img src="/docs/logo.png" alt="">
       <p class="dua-ar">دُعَاء</p>
@@ -83,7 +99,7 @@
         <button id="apply">Start listening</button>
         <button id="close" class="ghost">Close</button>
       </div>
-      <p class="keys">Keys: <kbd>→</kbd> next ayah · <kbd>←</kbd> previous · <kbd>D</kbd> dua screen · <kbd>B</kbd> blank · <kbd>S</kbd> settings · <kbd>F</kbd> full screen</p>
+      <p class="keys">Keys: <kbd>→</kbd> next ayah · <kbd>←</kbd> previous · <kbd>M</kbd> mute · <kbd>D</kbd> dua screen · <kbd>B</kbd> blank · <kbd>S</kbd> settings · <kbd>F</kbd> full screen</p>
       <p class="label-small">What it heard:</p>
       <p class="heard" id="heard"></p>
     </div>

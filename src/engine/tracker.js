@@ -59,6 +59,7 @@ export class Tracker {
     this.confidence = 0;
     this.lastAdd = 0;
     this.cleared = false;
+    this.offset = 0;
   }
 
   /** Tell it where tonight starts (e.g. first ayah of the juz). */
@@ -78,6 +79,7 @@ export class Tracker {
     this.pos = this.ix.ayahStart[i];
     if (this.pos >= this.ix.fatihaEnd) this.khatmPos = this.pos;
     this.shown = i;
+    this.offset = 0;
     this.state = 'LOCKED';
     this.fails = 0;
     this._clear();
@@ -196,6 +198,8 @@ export class Tracker {
     this.state = 'LOCKED';
     // Show the ayah containing the most recent matched letter.
     this.shown = ayahOf[Math.max(0, r.end - 1)];
+    // How far into the ayah the imam is (letters), for word highlighting.
+    this.offset = r.end - this.ix.ayahStart[this.shown];
     if (this.pos > fatihaEnd) {
       this.khatmPos = this.pos;
     } else if (this.pos >= fatihaEnd - this.o.fatihaTail) {
@@ -280,6 +284,7 @@ export class Tracker {
     const ref = this.shown >= 0 ? this.ix.ref(this.shown) : null;
     const clearAudio = this.cleared;
     this.cleared = false;
-    return { state: this.state, ayah: ref, changed, clearAudio, confidence: Number(this.confidence.toFixed(2)) };
+    // letter: how many letters of the shown ayah have been recited so far.
+    return { state: this.state, ayah: ref, letter: this.offset, changed, clearAudio, confidence: Number(this.confidence.toFixed(2)) };
   }
 }

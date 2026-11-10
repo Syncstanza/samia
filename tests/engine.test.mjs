@@ -70,3 +70,17 @@ test('live mode (sliding 4 s window): never a wrong ayah in juz 2', () => {
     assert.ok(r.correct >= 90, `seed ${seed}: ${r.correct}%`);
   }
 });
+
+test('tracker: reports how far into the ayah the recitation is', () => {
+  const tr = new Tracker(ix);
+  tr.setStart(2, 255);
+  const i = ix.indexOf(2, 255);
+  const text = ix.letters.slice(ix.ayahStart[i], ix.ayahStart[i + 1]);
+  let res, last = -1, grew = 0;
+  for (let p = 0; p < text.length; p += 12) {
+    res = tr.push(text.slice(p, p + 12));
+    if (res.ayah && res.ayah.index === i) { if (res.letter > last) grew++; last = res.letter; }
+  }
+  assert.ok(grew > 10, `progress moved ${grew} times`);
+  assert.ok(last >= text.length - 2, `ended at ${last} of ${text.length}`);
+});

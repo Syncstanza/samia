@@ -167,3 +167,36 @@ button.ghost { background: transparent; color: var(--muted); border: 1px solid #
 .keys { margin: 18px 0 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
 kbd { padding: 1px 6px; border-radius: 5px; background: #183036; color: var(--text); font-family: inherit; }
 .heard { margin: 10px 0 0; min-height: 1.4em; color: #5f7a80; font-family: "Amiri Quran", serif; direction: rtl; font-size: 18px; }
+
+/* ---------- word-by-word highlight ---------- */
+.ayah.current .ar .w { color: rgba(244, 239, 226, 0.42); transition: color 260ms ease, text-shadow 260ms ease; }
+.ayah.current .ar .w.done { color: var(--text); }
+.ayah.current .ar .w.now { color: #ffe3a1; text-shadow: 0 0 22px rgba(255, 194, 58, 0.7), 0 0 4px rgba(255, 194, 58, 0.5); }
+.ayah.current .ar { text-shadow: none; }
+
+/* ---------- controls: only while the mouse moves ---------- */
+.controls {
+  position: absolute; z-index: 8; left: 50%; bottom: 4.5vh; transform: translate(-50%, 1.5vh);
+  display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 16px;
+  background: rgba(12, 22, 26, 0.92); border: 1px solid rgba(34, 227, 210, 0.22);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  opacity: 0; pointer-events: none; transition: opacity 250ms ease, transform 250ms ease;
+}
+body.cursor-on .controls { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.controls button {
+  display: inline-flex; align-items: center; gap: 8px; height: 44px; min-width: 44px; padding: 0 12px;
+  background: transparent; color: var(--text); border: 0; border-radius: 11px; font-weight: 500; font-size: 15px;
+}
+.controls button:hover { background: rgba(255, 255, 255, 0.08); }
+.controls svg { width: 24px; height: 24px; fill: currentColor; }
+.controls .sep { width: 1px; height: 26px; background: rgba(255, 255, 255, 0.1); margin: 0 4px; }
+.controls .mute .off { display: none; }
+body.muted .controls .mute { background: rgba(255, 107, 107, 0.16); color: #ff9a9a; }
+body.muted .controls .mute .on { display: none; }
+body.muted .controls .mute .off { display: inline; }
+body.muted .controls .mute span::after { content: "d"; }
+
+/* the mic chip also hides, unless something is wrong with the mic */
+.mic { opacity: 0; transition: opacity 250ms ease; }
+body.cursor-on .mic, body.settings-open .mic, .mic.off, .mic.warn { opacity: 1; }
+body.muted .mic-name::after { content: " (muted)"; color: #ff9a9a; }

@@ -6,6 +6,7 @@
 //   ?start=2:142        set tonight's start point
 
 import { startCapture, listInputs, micError } from './capture.js';
+import { normalize } from '/src/engine/normalize.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -49,7 +50,21 @@ function fill(el, index, { full }) {
   }
   const ar = document.createElement('p');
   ar.className = 'ar';
-  ar.textContent = p.text + ' ';
+  if (full) {
+    // One span per word, each knowing where it ends (in matching letters),
+    // so words light up as the imam reaches them.
+    let end = 0;
+    for (const word of p.text.split(' ')) {
+      end += normalize(word).length;
+      const w = document.createElement('span');
+      w.className = 'w';
+      w.dataset.end = end;
+      w.textContent = word;
+      ar.append(w, ' ');
+    }
+  } else {
+    ar.textContent = p.text + ' ';
+  }
   const num = document.createElement('span');
   num.className = 'num';
   num.textContent = '۝' + arNum(p.a);
@@ -86,6 +101,7 @@ async function render(index) {
   if (index !== shown) return; // a newer ayah arrived meanwhile
   fill($('prev'), index - 1, { full: false });
   fill($('current'), index, { full: true });
+  lit = -1;
   fill($('next'), index + 1, { full: false });
   fit();
   for (const id of ['prev', 'current', 'next']) {
@@ -104,6 +120,28 @@ async function render(index) {
 }
 const cmp = (x, y) => (x[0] - y[0]) || (x[1] - y[1]);
 
+// Light the words recited so far; the word being recited now glows.
+// letter = how many letters of the ayah have been heard (from the tracker).
+let lit = -1;
+function light(letter) {
+  if (letter === undefined || letter === null) return;
+  const words = $('current').querySelectorAll('.w');
+  // The tracker trails speech by a moment, so count a word as reached once
+  // its first letters have been heard.
+  let now = -1;
+  for (let k = 0; k < words.length; k++) {
+    const end = +words[k].dataset.end;
+    const start = k ? +words[k - 1].dataset.end : 0;
+    if (letter > start + Math.min(2, end - start - 1)) now = k;
+  }
+  if (now === lit) return;
+  lit = now;
+  for (let k = 0; k < words.length; k++) {
+    words[k].classList.toggle('done', k < now);
+    words[k].classList.toggle('now', k === now);
+  }
+}
+
 function status(kind, text) {
   const el = $('status');
   el.className = `pill ${kind}`;
@@ -120,9 +158,10 @@ worker.onmessage = ({ data: m }) => {
     listen(); // the mic meter works even without the model
     if (!asrReady) status('manual', 'Manual: no speech model');
   } else if (m.type === 'update') {
-    if (m.ayah && m.changed) render(m.ayah.index);
+    if (m.ayah && m.changed) render(m.ayah.index).then(() => light(m.letter));
+    else if (m.ayah && m.ayah.index === shown) light(m.letter);
     if (m.heard !== undefined && m.heard) $('heard').textContent = m.heard;
-    if (asrReady || params.has('demo')) {
+    if ((asrReady || params.has('demo')) && !muted) {
       if (m.state === 'LOCKED') status('following', 'Following');
       else status('listening', 'Listening');
     }
@@ -161,9 +200,22 @@ async function listen() {
 
 function openMic(deviceId) {
   return startCapture({ deviceId, cleanup: store.get('cleanup', false) }, (chunk) => {
+    if (muted) return;
     showLevel(chunk);
     if (asrReady) worker.postMessage({ type: 'audio', samples: chunk }, [chunk.buffer]);
   });
+}
+
+// Mute: stop following (e.g. for a talk or announcements). The screen holds.
+let muted = false;
+function setMuted(on) {
+  muted = on;
+  document.body.classList.toggle('muted', on);
+  $('btnMute').setAttribute('aria-pressed', on);
+  $('btnMute').title = on ? 'Unmute (M)' : 'Mute (M)';
+  $('micLevel').style.width = '0%';
+  if (on) status('manual', 'Muted');
+  else if (asrReady) status('listening', 'Listening');
 }
 
 function micFailed(e) {
@@ -191,7 +243,9 @@ function showLevel(chunk) {
     $('micLevel2').style.width = pct + '%';
   }
   if (peak > 0.004) quietSince = now;
-  $('micHint').textContent = now - quietSince > 6000 ? 'No sound from this mic' : '';
+  const silent = now - quietSince > 6000;
+  $('micHint').textContent = silent ? 'No sound from this mic' : '';
+  $('mic').classList.toggle('warn', silent);
 }
 
 function setStart(ref) {
@@ -281,6 +335,7 @@ document.addEventListener('keydown', (e) => {
   switch (e.key) {
     case 'ArrowRight': case 'PageDown': worker.postMessage({ type: 'next' }); break; // most clickers send these
     case 'ArrowLeft': case 'PageUp': worker.postMessage({ type: 'prev' }); break;
+    case 'm': case 'M': setMuted(!muted); break;
     case 'd': case 'D': toggle('dua'); break;
     case 'b': case 'B': case '.': toggle('blank'); break;
     case 's': case 'S': openSettings(); break;
@@ -294,12 +349,28 @@ window.addEventListener('resize', () => shown >= 0 && fit());
 document.fonts?.addEventListener?.('loadingdone', () => shown >= 0 && fit());
 document.fonts?.ready.then(() => shown >= 0 && fit());
 $('mic').addEventListener('click', openSettings);
-// Show the mouse pointer only while it moves (it's a TV).
+// Controls and the pointer show only while the mouse moves (it's a TV).
 let cursorTimer = 0;
-window.addEventListener('mousemove', () => {
+function wake() {
   document.body.classList.add('cursor-on');
   clearTimeout(cursorTimer);
-  cursorTimer = setTimeout(() => document.body.classList.remove('cursor-on'), 3000);
-});
+  cursorTimer = setTimeout(() => {
+    if (!$('controls').matches(':hover')) document.body.classList.remove('cursor-on');
+    else wake();
+  }, 3000);
+}
+window.addEventListener('mousemove', wake);
+window.addEventListener('touchstart', wake);
+
+const send = (type) => () => worker.postMessage({ type });
+$('btnPrev').onclick = send('prev');
+$('btnNext').onclick = send('next');
+$('btnMute').onclick = () => setMuted(!muted);
+$('btnDua').onclick = () => toggle('dua');
+$('btnBlank').onclick = () => toggle('blank');
+$('btnSettings').onclick = openSettings;
+$('btnFull').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
+// Clicking an overlay (dua / blank) closes it.
+for (const id of ['dua', 'blank']) $(id).addEventListener('click', () => $(id).classList.remove('on'));
 try { await navigator.wakeLock?.request('screen'); } catch { /* not supported */ }
 document.body.classList.add('idle-on');
