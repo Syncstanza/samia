@@ -7,5 +7,15 @@
   "license": "Apache-2.0",
   "private": true,
   "main": "src/main/main.js",
-  "repository": "github:Syncstanza/samia"
+  "repository": "github:Syncstanza/samia",
+  "devDependencies": {
+    "quran-json": "^1.0.1",
+    "quran-meta": "^7.0.0"
+  },
+  "type": "module",
+  "scripts": {
+    "build:data": "node tools/build-quran-data.mjs",
+    "simulate": "node tools/simulate.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
 }
