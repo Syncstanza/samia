@@ -14,10 +14,14 @@ const GAP = -1;
  * @param {number} to    end offset into ref (exclusive)
  * @param {number} [prefer] absolute offset: on equal scores, pick the end closest to it
  *   (the Quran repeats lines, e.g. the refrain of ar-Rahman, so ties are real)
+ * @param {number} [penalty] score lost per letter the end is away from `prefer`
+ *   (beyond `slack` letters). Keeps the position moving smoothly forward
+ *   instead of hopping to a matching phrase elsewhere in the window.
+ * @param {number} [slack]
  * @returns {{score:number, norm:number, start:number, end:number}}
  *   start/end are absolute offsets into ref; norm is score / best possible.
  */
-export function align(query, ref, from, to, prefer = -1) {
+export function align(query, ref, from, to, prefer = -1, penalty = 0, slack = 0) {
   const q = query.length;
   from = Math.max(0, from);
   to = Math.min(ref.length, to);
@@ -48,11 +52,12 @@ export function align(query, ref, from, to, prefer = -1) {
   }
 
   // free end: best cell in last row
-  let best = -Infinity, bestJ = 0;
+  let best = -Infinity, bestJ = 0, bestRaw = -Infinity;
   for (let j = 0; j <= n; j++) {
-    if (prev[j] > best) { best = prev[j]; bestJ = j; }
-    else if (prev[j] === best && prefer >= 0 &&
-             Math.abs(from + j - prefer) < Math.abs(from + bestJ - prefer)) bestJ = j;
+    const dist = prefer >= 0 ? Math.abs(from + j - prefer) : 0;
+    const v = prev[j] - (penalty ? penalty * Math.max(0, dist - slack) : 0);
+    if (v > best) { best = v; bestJ = j; bestRaw = prev[j]; }
+    else if (v === best && prefer >= 0 && dist < Math.abs(from + bestJ - prefer)) { bestJ = j; bestRaw = prev[j]; }
   }
-  return { score: best, norm: best / (MATCH * q), start: from + prevStart[bestJ], end: from + bestJ };
+  return { score: bestRaw, norm: bestRaw / (MATCH * q), start: from + prevStart[bestJ], end: from + bestJ };
 }

@@ -30,8 +30,15 @@ const CALLS = [
 
 const DEFAULTS = {
   maxQuery: 40,        // letters of recent speech to match
-  minQuery: 12,        // don't decide on less than this
-  lockAccept: 0.55,    // LOCKED: alignment quality to accept a step
+  minQuery: 12,        // letters needed before searching the whole Quran
+  minLockedQuery: 8,   // letters needed to follow from a known position
+  lockAccept: 0.55,    // LOCKED: alignment quality to accept a normal step forward
+  jumpAccept: 0.6,     // LOCKED: quality to accept a jump within the window
+  stepPenalty: 0.35,   // score lost per letter away from where the imam should be
+  stepSlack: 8,        // letters of free movement around that point
+  catchUp: 1,          // share of what was heard that may be new when behind
+  minIntoAyah: 3,      // letters of the next ayah heard before it is shown
+  backSlack: 12,       // small backward wobbles of the highlight are ignored
   backAccept: 0.62,
   skipAccept: 0.68,    // LOCKED: quality needed to skip past the next ayah
   skipMinQuery: 24,    // ...and at least this many letters heard    // LOCKED: quality needed to step backwards (repeats)
@@ -158,7 +165,10 @@ export class Tracker {
       this._clear();
       return this._result(false);
     }
-    if (this.buf.length < this.o.minQuery) return this._result(false);
+    // Following needs only a few letters (the expected position makes short
+    // queries safe: "عم يتساءلون" is 9 letters); a search needs more.
+    const need = this.state === 'LOCKED' ? this.o.minLockedQuery : this.o.minQuery;
+    if (this.buf.length < need) return this._result(false);
 
     const before = this.shown;
     if (this.state === 'LOCKED') this._locked();
@@ -196,19 +206,36 @@ export class Tracker {
     const q = this.buf;
     const inFatiha = this.pos < fatihaEnd;
 
+    // The ayah the imam is in, from his position (not from the screen: after
+    // al-Fatiha the screen still shows 1:7 while he is back at the khatm).
+    // pos is just after the last letter heard, so at the start of an ayah it
+    // already points into that ayah.
+    const curAyah = ayahOf[Math.min(this.pos, letters.length - 1)];
     // Window behind and ahead of the current position.
-    const curAyah = Math.max(0, ayahOf[Math.max(0, this.pos - 1)]);
     const back = Math.max(this.o.back, this.pos - ayahStart[Math.max(0, curAyah - 1)]);
     let lo = this.pos - back - q.length;
     let hi = this.pos + this.o.fwd;
     if (inFatiha) { lo = 0; hi = fatihaEnd; }
-    const r = align(q, letters, lo, hi, this.pos + this.lastAdd);
+    // 1. Normal case: the imam carries on from where he was. Prefer the end
+    //    just after the last position (what was newly heard), so the
+    //    highlight moves word by word and never hops to the same phrase
+    //    elsewhere in the window.
+    const expect = this.pos + this.lastAdd;
+    const near = align(q, letters, lo, hi, expect, this.o.stepPenalty, this.o.stepSlack);
+    // If we were behind, everything heard may be new: allow catching up by
+    // up to the whole query length.
+    const reach = Math.max(expect + this.o.stepSlack * 2, this.pos + Math.round(q.length * this.o.catchUp) + this.o.stepSlack);
+    if (near.norm >= this.o.lockAccept && near.end >= this.pos - 2 && near.end <= reach) {
+      this._accept(near);
+      return;
+    }
 
-    // Going backwards (a repeated ayah) needs a clearer match than going on,
-    // and so does skipping ahead past the next ayah: a common phrase
-    // ("الذين آمنوا") appears every few ayat.
+    // 2. Otherwise he repeated or skipped: allow a jump, but going backwards
+    //    (a repeat) or past the next ayah needs a clearer match, since common
+    //    phrases ("الذين آمنوا") appear every few ayat.
+    const r = align(q, letters, lo, hi, expect);
     const skip = ayahOf[Math.max(0, r.end - 1)] - curAyah;
-    let need = this.o.lockAccept;
+    let need = this.o.jumpAccept;
     if (r.end < this.pos - 10) need = this.o.backAccept;
     else if (skip >= 2) need = q.length >= this.o.skipMinQuery ? this.o.skipAccept : Infinity;
     if (r.norm >= need) {
@@ -243,10 +270,23 @@ export class Tracker {
     this.fails = 0;
     this.confidence = r.norm;
     this.state = 'LOCKED';
-    // Show the ayah containing the most recent matched letter.
-    this.shown = ayahOf[Math.max(0, r.end - 1)];
-    // How far into the ayah the imam is (letters), for word highlighting.
-    this.offset = r.end - this.ix.ayahStart[this.shown];
+    // Show the ayah containing the most recent matched letter, once its first
+    // word is really heard (a couple of letters could still be the end of the
+    // previous ayah matching by chance).
+    let ayah = ayahOf[Math.max(0, r.end - 1)];
+    const into = r.end - this.ix.ayahStart[ayah];
+    if (this.shown >= 0 && ayah > this.shown && into < this.o.minIntoAyah && r.end - r.start > into) {
+      ayah = ayahOf[Math.max(0, this.ix.ayahStart[ayah] - 1)]; // stay on the ayah before it
+    }
+    const offset = r.end - this.ix.ayahStart[ayah];
+    // Within the same ayah the highlight only moves forward, unless the imam
+    // clearly went back (a repeat).
+    if (ayah === this.shown && offset < this.offset && this.offset - offset < this.o.backSlack) {
+      // keep the current highlight
+    } else {
+      this.offset = Math.min(offset, this.ix.ayahStart[ayah + 1] - this.ix.ayahStart[ayah]);
+    }
+    this.shown = ayah;
     if (this.pos > fatihaEnd) {
       this.khatmPos = this.pos;
     } else if (this.pos >= fatihaEnd - this.o.fatihaTail) {

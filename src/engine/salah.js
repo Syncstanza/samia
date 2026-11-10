@@ -22,11 +22,12 @@
 //      the recitation is ignored there altogether.
 //
 // Between ruku' and the end of the sujood the imam says nothing aloud except
-// the transition words. So in those positions any new burst of speech after
-// silence is taken as the next call, even when the speech model garbled it
-// (a long, melodic takbir often comes out as "الهزكبر"). In qawmah the
-// congregation may say "ربنا ولك الحمد" aloud, so there the burst has to look
-// more like a takbir than like that.
+// the transition words. So in those positions a new burst of speech after
+// silence that looks roughly like the expected call is taken as that call,
+// even when the speech model garbled it (a long, melodic takbir often comes
+// out as "الهزكبر"). "Roughly" matters: a cough, the congregation, or room
+// noise must not move the prayer on. In qawmah the congregation may say
+// "ربنا ولك الحمد" aloud, so there the burst must look more like a takbir.
 //
 // Recovery: missed calls happen (a quiet takbir, a cough). Hearing Quran again
 // always means standing; "sami' Allahu" always means qawmah; salam always
@@ -37,6 +38,8 @@ import { normalize } from './normalize.js';
 
 const TAKBIR = normalize('الله اكبر');
 const TAHMID = normalize('ربنا ولك الحمد');
+const TASMI = normalize('سمع الله لمن حمده');
+const likeness = (phrase, heard) => (heard ? align(phrase, heard, 0, heard.length).norm : 0);
 
 export const POSITIONS = {
   QIYAM: { ar: 'قِيَام', en: 'Qiyam', note: '' },
@@ -65,6 +68,8 @@ const DEFAULTS = {
   minRecited: 3,
   cancelLetters: 6,    // speech after a standing takbir that cancels ruku'
   minDwell: 1.0,
+  burstLetters: 3,     // a burst needs at least this many letters heard
+  burstLike: 0.4,      // ...and must look at least this much like the expected call
   recitationLetters: 26,
   staleSilence: 4,       // seconds of silence while standing that reset "has recited" // this much speech in ruku'/sujood = reciting again       // seconds before a position can change on unrecognised speech
   qawmahTakbir: 0.4,   // how takbir-like a burst in qawmah must be       // hops of recitation in a qiyam before a takbir can mean ruku'
@@ -180,16 +185,18 @@ export class Salah {
 
   /** Unrecognised speech in a position where only a call can be said. */
   _onBurst(heard) {
+    if (heard.length < this.o.burstLetters) return;
     switch (this.position) {
-      case 'RUKU': this._go('QAWMAH'); break; // "sami' Allahu liman hamidah"
+      case 'RUKU': // "sami' Allahu liman hamidah"
+        if (likeness(TASMI, heard) >= this.o.burstLike) this._go('QAWMAH');
+        break;
       case 'QAWMAH': {
-        const t = align(TAKBIR, heard, 0, heard.length).norm;
-        const h = align(TAHMID, heard, 0, heard.length).norm;
-        if (t >= this.o.qawmahTakbir && t > h) this._onCall('takbir');
+        const t = likeness(TAKBIR, heard);
+        if (t >= this.o.qawmahTakbir && t > likeness(TAHMID, heard)) this._onCall('takbir');
         break;
       }
       case 'SUJOOD_1': case 'JALSAH': case 'SUJOOD_2':
-        this._onCall('takbir');
+        if (likeness(TAKBIR, heard) >= this.o.burstLike) this._onCall('takbir');
         break;
       default: break; // standing, rising, tashahhud: recitation or real calls decide
     }

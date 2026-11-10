@@ -31,7 +31,7 @@ const CALLS = {
   salam: 'السلام عليكم ورحمة الله',
 };
 
-export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start = [2, 142], ayatPerRakah = [6, 12], chunk = 12, cold = false, window = 0, debug = false, takbirAyat = null, stretchedShare = 0.7 } = {}) {
+export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start = [2, 142], ayatPerRakah = [6, 12], chunk = 12, cold = false, window = 0, debug = false, takbirAyat = null, stretchedShare = 0.7, roomNoise = 0, trackerOptions = {} } = {}) {
   const ix = buildIndex(data);
   const rand = rng(seed);
   const between = (a, b) => a + Math.floor(rand() * (b - a + 1));
@@ -74,7 +74,12 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
   const pushes = [];
   let lastTruth = -1;
   for (const seg of segs) {
-    if (seg.truth === -2) { pushes.push({ text: '', truth: lastTruth, kind: 'pause', pos: seg.pos }); continue; }
+    if (seg.truth === -2) {
+      // Room noise that got past the silence detection: a few stray letters.
+      const stray = rand() < roomNoise ? Array.from({ length: between(1, 4) }, () => LETTERS[between(0, LETTERS.length - 1)]).join('') : '';
+      pushes.push({ text: stray, truth: lastTruth, kind: stray ? 'noise' : 'pause', pos: seg.pos });
+      continue;
+    }
     let noisy = '';
     for (const ch of seg.text) {
       const x = rand();
@@ -85,12 +90,14 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
     }
     for (let p = 0; p < noisy.length; p += chunk) {
       if (seg.truth >= 0) lastTruth = seg.truth;
-      pushes.push({ text: noisy.slice(p, p + chunk), truth: seg.truth >= 0 ? seg.truth : lastTruth, kind: seg.truth >= 0 ? 'quran' : 'call', pos: seg.pos });
+      // How far into the ayah the imam is at the end of this push (letters).
+      const reached = Math.round(Math.min(1, (p + chunk) / noisy.length) * seg.text.length);
+      pushes.push({ text: noisy.slice(p, p + chunk), truth: seg.truth >= 0 ? seg.truth : lastTruth, kind: seg.truth >= 0 ? 'quran' : 'call', pos: seg.pos, reached, first: p === 0 });
     }
   }
 
   // 3. Run the tracker. Start point is set, like a volunteer would.
-  const tr = new Tracker(ix);
+  const tr = new Tracker(ix, trackerOptions);
   const risky = takbirAyat ? new Set(takbirAyat.map(([s, a]) => ix.indexOf(s, a))) : null;
   const salah = new Salah({ takbirAyat: risky });
   let posOk = 0, posTotal = 0, falseRuku = 0, prevTruthPos = 'QIYAM', sinceChange = 0, prevShownPos = 'QIYAM';
@@ -102,10 +109,11 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
   // `window` hops of audio (like the real app), not just the new letters.
   let audio = [];
   let prevKind = 'pause', utter = null;
+  let hlCount = 0, hlBehind = 0, hlAhead = 0, newAyahAt = -1, showDelay = 0, showCount = 0;
   pushes.forEach((p, n) => {
     // How it was said: recitation runs on; a call after a pause is its own
     // utterance, drawn out most of the time (stretchedShare).
-    if (p.kind === 'pause') utter = utter && { ...utter, gapAfter: (utter.gapAfter || 0) + 0.8 };
+    if (p.kind === 'pause' || p.kind === 'noise') utter = utter && { ...utter, gapAfter: (utter.gapAfter || 0) + 0.8 };
     else if (prevKind !== p.kind || prevKind === 'pause') {
       const gapBefore = prevKind === 'pause' ? 0.4 + rand() * 0.6 : 0.05;
       const dur = p.kind === 'call' ? (rand() < stretchedShare ? 1.0 + rand() * 1.2 : 0.55 + rand() * 0.2) : 3;
@@ -141,6 +149,14 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
     if (p.kind !== 'quran') return;
     quran++;
     const shown = res.ayah ? res.ayah.index : -1;
+    // Highlight: how far behind (or ahead of) the imam, in letters.
+    if (p.first) newAyahAt = n;
+    if (shown === p.truth) {
+      const d = p.reached - (res.letter || 0);
+      hlCount++; hlBehind += Math.max(0, d);
+      if (d < -6) hlAhead++;
+      if (newAyahAt >= 0) { showDelay += n - newAyahAt; showCount++; newAyahAt = -1; }
+    }
     if (shown === p.truth) { correct++; if (firstCorrect < 0) firstCorrect = n; }
     else if (shown < 0) blank++;
     else if (shown === p.truth - 1 || shown === p.truth + 1 || (p.truth <= 6 && shown <= 6)) lag++;
@@ -157,6 +173,9 @@ export function simulate(data, { errorRate = 0.15, rakahs = 8, seed = 1, start =
     heldDuringFatihaSwitch: +(held / quran * 100).toFixed(1),
     wrongVerse: +(wrong / quran * 100).toFixed(2),
     positionCorrect: +(posOk / posTotal * 100).toFixed(1),
+    highlightBehindLetters: +(hlBehind / Math.max(1, hlCount)).toFixed(1),
+    highlightAheadPct: +(hlAhead / Math.max(1, hlCount) * 100).toFixed(1),
+    newAyahDelayPushes: +(showDelay / Math.max(1, showCount)).toFixed(2),
     falseRuku,
     posWrongs,
     firstCorrectPush: firstCorrect,
@@ -172,6 +191,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const takbirAyat = JSON.parse(readFileSync(new URL('../data/takbir-ayat.json', import.meta.url), 'utf8')).ayat;
   const res = simulate(data, { errorRate: +er, rakahs: +rk, seed: +sd, start: st.split(':').map(Number),
     cold: modes.includes('cold'), window: modes.includes('live') ? 4 : 0, takbirAyat,
-    stretchedShare: modes.includes('quick') ? 0 : 0.7 });
+    stretchedShare: modes.includes('quick') ? 0 : 0.7, roomNoise: modes.includes('noisy') ? 0.35 : 0 });
   console.log(JSON.stringify(res, null, 2));
 }

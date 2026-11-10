@@ -40,8 +40,11 @@ export class Utterances {
     for (let i = 0; i < f.length; i++) sum += f[i] * f[i];
     const level = Math.sqrt(sum / f.length);
     this.levels.push(level);
+    this.voicedLog = this.voicedLog || [];
     if (this.levels.length > HISTORY / FRAME) this.levels.shift();
     const voice = level > this._threshold();
+    this.voicedLog.push(voice ? level : 0);
+    if (this.voicedLog.length > HISTORY / FRAME) this.voicedLog.shift();
     const now = this.t;
     this.t += FRAME;
 
@@ -67,6 +70,15 @@ export class Utterances {
       this._sorted = true;
     }
     return Math.max(0.0015, this._floor * 3);
+  }
+
+  /** Share of the last `seconds` that was voice (0..1), and the voice's level. */
+  voiced(seconds) {
+    const log = this.voicedLog || [];
+    const n = Math.min(log.length, Math.round(seconds / FRAME));
+    let count = 0, sum = 0;
+    for (let i = log.length - n; i < log.length; i++) if (log[i] > 0) { count++; sum += log[i]; }
+    return { share: n ? count / n : 0, level: count ? sum / count : 0 };
   }
 
   /** The utterance being spoken now, or the one that just ended. */

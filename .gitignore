@@ -15,3 +15,4 @@ tests/audio/*
 # python spike
 .venv/
 __pycache__/
+.scratch/
