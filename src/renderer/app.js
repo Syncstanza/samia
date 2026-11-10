@@ -1,0 +1,605 @@
+// Display thread: screens, drawing and keys. Listening, following and scoring
+// happen in the worker (src/engine/worker.js) so drawing never stutters.
+//
+// Screens (body.screen-*): home -> free | setup -> ready -> turn -> checking -> result -> ... -> board
+//
+// URL options (handy for testing):
+//   ?demo=78:1-78:5   free recite: play these ayat through the tracker without a model
+//   ?start=2:142      free recite: start following from here
+
+import { startCapture, listInputs, micError } from './capture.js';
+import { normalize } from '/src/engine/normalize.js';
+import { TestRecorder } from './recorder.js';
+
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const MODEL = '/models/quran-asr-tiny/';
+const recorder = new TestRecorder();
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('samia.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('samia.' + k, JSON.stringify(v)); } catch { /* storage off */ } },
+};
+
+const data = await fetch('/data/quran/quran.json').then((r) => r.json());
+const worker = new Worker('/src/engine/worker.js', { type: 'module' });
+let shown = -1;
+let asrReady = false;
+let capture = null;
+let screenName = 'home';
+let session = null; // competition / hifz: {mode, from, to, hide, reciters: [{name, result}], i}
+
+// ------------------------------------------------------------------ screens
+const SCREENS = ['home', 'free', 'setup', 'ready', 'turn', 'checking', 'result', 'board'];
+function screen(name) {
+  screenName = name;
+  for (const s of SCREENS) document.body.classList.toggle('screen-' + s, s === name);
+  $('setup').hidden = name !== 'setup';
+  $('ready').hidden = name !== 'ready';
+  $('checking').hidden = name !== 'checking';
+  $('result').hidden = name !== 'result';
+  $('scoreboard').hidden = name !== 'board';
+  $('turnBar').hidden = name !== 'turn';
+  document.body.classList.toggle('hide-text', name === 'turn' && !!session?.hide);
+  $('turnInfo').textContent = name === 'turn' && session ? session.reciters[session.i].name : '';
+}
+const following = () => screenName === 'free' || screenName === 'turn';
+
+// ------------------------------------------------------------------ drawing
+const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+const arNum = (n) => String(n).replace(/\d/g, (d) => AR_DIGITS[d]);
+const cmp = (x, y) => (x[0] - y[0]) || (x[1] - y[1]);
+const surahLabel = (s) => `${data.surahs[s - 1].translit}`;
+const refLabel = (from, to) => {
+  const [s1, a1] = data.ayat[from], [, a2] = data.ayat[to];
+  return `${surahLabel(s1)} ${s1}:${a1}${to > from ? '–' + a2 : ''} · ${to - from + 1} ayat`;
+};
+
+function ayahParts(index) {
+  const [s, a, ar, tr] = data.ayat[index];
+  let text = ar;
+  let bismillah = false;
+  if (a === 1 && data.surahs[s - 1].bismillahPrefix) {
+    text = ar.split(' ').slice(4).join(' '); // shown separately as a heading
+    bismillah = true;
+  }
+  return { s, a, text, tr, bismillah };
+}
+
+function fill(el, index, { full }) {
+  el.replaceChildren();
+  if (index < 0 || index >= data.ayat.length) return;
+  // In a turn, only the passage is shown.
+  if (screenName === 'turn' && session && (index < session.from || index > session.to)) return;
+  const p = ayahParts(index);
+  if (full && p.bismillah) {
+    const b = document.createElement('div');
+    b.className = 'bismillah';
+    b.textContent = data.bismillah;
+    el.append(b);
+  }
+  const ar = document.createElement('p');
+  ar.className = 'ar';
+  if (full) {
+    // One span per word, each knowing where it ends (in matching letters),
+    // so words light up as the reciter reaches them.
+    let end = 0;
+    for (const word of p.text.split(' ')) {
+      end += normalize(word).length;
+      const w = document.createElement('span');
+      w.className = 'w';
+      w.dataset.end = end;
+      w.textContent = word;
+      ar.append(w, ' ');
+    }
+  } else {
+    ar.textContent = p.text + ' ';
+  }
+  const num = document.createElement('span');
+  num.className = 'num';
+  num.textContent = '۝' + arNum(p.a);
+  ar.append(num);
+  el.append(ar);
+  if (full) {
+    const tr = document.createElement('p');
+    tr.className = 'tr';
+    tr.textContent = p.tr;
+    el.append(tr);
+  }
+}
+
+function fit() {
+  // Largest Arabic size that fits the middle area (long ayat get smaller).
+  const box = $('current');
+  const vh = window.innerHeight / 100;
+  let lo = 2.6 * vh, hi = 8.5 * vh;
+  for (let k = 0; k < 9; k++) {
+    const mid = (lo + hi) / 2;
+    box.style.setProperty('--ar-size', `${mid}px`);
+    box.style.setProperty('--tr-size', `${Math.max(1.5 * vh, Math.min(3.2 * vh, mid * 0.4))}px`);
+    if (box.scrollHeight <= box.clientHeight + 1) lo = mid; else hi = mid;
+  }
+  box.style.setProperty('--ar-size', `${lo}px`);
+  box.style.setProperty('--tr-size', `${Math.max(1.5 * vh, Math.min(3.2 * vh, lo * 0.4))}px`);
+}
+
+async function render(index, force = false) {
+  if ((index === shown && !force) || index < 0) return;
+  const dir = shown < 0 || force ? 'fade-in' : index > shown ? 'enter-fwd' : 'enter-back';
+  shown = index;
+  try { await document.fonts.load('40px "Amiri Quran"', 'بسم'); } catch { /* fit again later */ }
+  if (index !== shown) return; // a newer ayah arrived meanwhile
+  fill($('prev'), index - 1, { full: false });
+  fill($('current'), index, { full: true });
+  lit = -1;
+  fill($('next'), index + 1, { full: false });
+  fit();
+  for (const id of ['prev', 'current', 'next']) {
+    const el = $(id);
+    el.classList.remove('enter-fwd', 'enter-back', 'fade-in');
+    void el.offsetWidth; // restart the animation
+    el.classList.add(dir);
+  }
+  const [s, a] = data.ayat[index];
+  const surah = data.surahs[s - 1];
+  $('surahAr').textContent = surah.name;
+  $('surahEn').textContent = `${surah.translit} · ${s}:${a}`;
+  const juz = data.juz.find((j) => cmp([s, a], j.start) >= 0 && cmp([s, a], j.end) <= 0);
+  $('juz').textContent = juz ? `Juz ${juz.juz}` : '';
+  document.body.classList.remove('idle-on');
+}
+
+// Light the words recited so far; the word being recited now glows.
+// letter = how many letters of the ayah have been heard (from the tracker).
+let lit = -1;
+function light(letter) {
+  if (letter === undefined || letter === null) return;
+  const words = $('current').querySelectorAll('.w');
+  let now = -1;
+  for (let k = 0; k < words.length; k++) {
+    const end = +words[k].dataset.end;
+    const start = k ? +words[k - 1].dataset.end : 0;
+    if (letter > start + Math.min(2, end - start - 1)) now = k;
+  }
+  if (now === lit) return;
+  lit = now;
+  for (let k = 0; k < words.length; k++) {
+    words[k].classList.toggle('done', k < now);
+    words[k].classList.toggle('now', k === now);
+  }
+}
+
+function status(kind, text) {
+  const el = $('status');
+  el.className = `pill ${kind}`;
+  el.querySelector('b').textContent = text;
+}
+
+// ------------------------------------------------------------------ worker
+worker.onmessage = ({ data: m }) => {
+  if (m.type === 'ready') {
+    asrReady = m.asr;
+    if (params.has('demo')) { startFree(); return runDemo(params.get('demo')); }
+    if (params.get('start')) { startFree(); setStart(params.get('start')); }
+    listen(); // the mic meter works even without the model
+    if (!asrReady) status('manual', 'No speech model');
+  } else if (m.type === 'update') {
+    recorder.addUpdate(m);
+    if (m.heard) { $('heard').textContent = m.heard; lastSpeechAt = performance.now(); if (screenName === 'turn') spokeInTurn = true; }
+    if (!following()) return;
+    if (m.ayah && m.changed) render(m.ayah.index).then(() => light(m.letter));
+    else if (m.ayah && m.ayah.index === shown) light(m.letter);
+    if (screenName === 'turn') watchForEnd(m);
+    if ((asrReady || params.has('demo')) && !muted) {
+      if (m.state === 'LOCKED' && shown >= 0) status('following', 'Following');
+      else status('listening', 'Listening');
+    }
+  } else if (m.type === 'scoring') {
+    $('checkBar').style.width = Math.round(m.progress * 100) + '%';
+  } else if (m.type === 'score') {
+    showResult(m.result);
+  } else if (m.type === 'error') {
+    console.warn(m.message);
+    status('error', m.message.length > 40 ? 'Problem: see settings' : m.message);
+    $('heard').textContent = m.message;
+  }
+};
+worker.postMessage({
+  type: 'init',
+  dataUrl: '/data/quran/quran.json',
+  modelUrl: params.has('demo') ? null : MODEL + 'model.int8.onnx',
+  tokensUrl: MODEL + 'tokens.txt',
+});
+
+// ------------------------------------------------------------------ free recite
+function startFree() {
+  session = null;
+  screen('free');
+  shown = -1;
+  for (const id of ['prev', 'current', 'next']) $(id).replaceChildren();
+  $('surahAr').textContent = ''; $('surahEn').textContent = ''; $('juz').textContent = '';
+  $('idleText').textContent = 'Start reciting… Sami\'a will find where you are.';
+  document.body.classList.add('idle-on');
+  worker.postMessage({ type: 'reset' });
+}
+
+function setStart(ref) {
+  const m = String(ref).match(/^(\d+):(\d+)$/);
+  if (!m) return;
+  if (!data.ayat.some(([s, a]) => s === +m[1] && a === +m[2])) return;
+  worker.postMessage({ type: 'start', surah: +m[1], ayah: +m[2] });
+}
+
+// ------------------------------------------------------------------ competition / hifz setup
+function openSetup(mode) {
+  const last = store.get('session', {});
+  $('setupTitle').textContent = mode === 'hifz' ? 'Hifz test' : 'Competition';
+  const sel = $('pickSurah');
+  if (!sel.options.length) {
+    for (const s of data.surahs) sel.append(new Option(`${s.n}. ${s.translit} — ${s.name} (${s.ayahs} ayat)`, s.n));
+    sel.onchange = () => { $('pickFrom').value = 1; $('pickTo').value = Math.min(10, data.surahs[sel.value - 1].ayahs); passageInfo(); };
+    $('pickFrom').oninput = passageInfo;
+    $('pickTo').oninput = passageInfo;
+    $('pickWhole').onclick = () => { $('pickFrom').value = 1; $('pickTo').value = data.surahs[sel.value - 1].ayahs; passageInfo(); };
+  }
+  sel.value = last.surah || 78;
+  $('pickFrom').value = last.fromAyah || 1;
+  $('pickTo').value = last.toAyah || Math.min(10, data.surahs[sel.value - 1].ayahs);
+  const names = mode === 'hifz' ? (last.hifzNames || ['Reciter 1']) : (last.names || ['Reciter 1', 'Reciter 2']);
+  $('reciters').replaceChildren();
+  names.forEach(addReciterRow);
+  $('hideText').checked = mode === 'hifz';
+  setupMode = mode;
+  passageInfo();
+  screen('setup');
+}
+let setupMode = 'competition';
+
+function addReciterRow(name = '') {
+  const row = document.createElement('div');
+  row.className = 'reciter-row';
+  const input = document.createElement('input');
+  input.value = name;
+  input.placeholder = `Reciter ${$('reciters').children.length + 1}`;
+  const del = document.createElement('button');
+  del.className = 'ghost';
+  del.textContent = '✕';
+  del.title = 'Remove';
+  del.onclick = () => { if ($('reciters').children.length > 1) row.remove(); };
+  row.append(input, del);
+  $('reciters').append(row);
+  return input;
+}
+
+function readPassage() {
+  const s = +$('pickSurah').value;
+  const n = data.surahs[s - 1].ayahs;
+  let a1 = Math.max(1, Math.min(n, Math.round(+$('pickFrom').value || 1)));
+  let a2 = Math.max(1, Math.min(n, Math.round(+$('pickTo').value || a1)));
+  if (a2 < a1) [a1, a2] = [a2, a1];
+  const from = data.ayat.findIndex(([x, y]) => x === s && y === a1);
+  return { s, a1, a2, from, to: from + (a2 - a1) };
+}
+function passageInfo() {
+  const p = readPassage();
+  const words = data.ayat.slice(p.from, p.to + 1).reduce((n, x) => n + x[2].split(' ').length, 0);
+  $('pickInfo').textContent = `${refLabel(p.from, p.to)} · about ${words} words`;
+}
+
+$('addReciter').onclick = () => addReciterRow().focus();
+$('setupCancel').onclick = goHome;
+$('setupStart').onclick = () => {
+  const p = readPassage();
+  const names = [...$('reciters').querySelectorAll('input')].map((i, k) => i.value.trim() || `Reciter ${k + 1}`);
+  const last = store.get('session', {});
+  store.set('session', { ...last, surah: p.s, fromAyah: p.a1, toAyah: p.a2, [setupMode === 'hifz' ? 'hifzNames' : 'names']: names });
+  session = { mode: setupMode, from: p.from, to: p.to, hide: $('hideText').checked, reciters: names.map((name) => ({ name })), i: 0 };
+  showReady();
+};
+
+// ------------------------------------------------------------------ turns
+function showReady() {
+  const r = session.reciters[session.i];
+  $('readyCount').textContent = session.reciters.length > 1 ? `Reciter ${session.i + 1} of ${session.reciters.length}` : (session.mode === 'hifz' ? 'Hifz test' : 'Recitation');
+  $('readyName').textContent = r.name;
+  $('readyPassage').textContent = refLabel(session.from, session.to) + (session.hide ? ' · text hidden' : '');
+  screen('ready');
+  $('readyGo').focus();
+}
+
+let turnStarted = 0, clockTimer = 0, lastSpeechAt = 0, reachedEnd = false, spokeInTurn = false;
+function beginTurn() {
+  screen('turn');
+  shown = -1;
+  render(session.from, true);
+  reachedEnd = false;
+  spokeInTurn = false;
+  lastSpeechAt = performance.now();
+  worker.postMessage({ type: 'turnStart', from: session.from, to: session.to });
+  turnStarted = performance.now();
+  clearInterval(clockTimer);
+  clockTimer = setInterval(() => {
+    const s = Math.floor((performance.now() - turnStarted) / 1000);
+    $('turnClock').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    // Ends by itself: last word reached, then 2.5 s of silence.
+    if (reachedEnd && performance.now() - lastSpeechAt > 2500) endTurn();
+  }, 250);
+  status('listening', 'Listening');
+}
+
+function watchForEnd(m) {
+  // Only what was recited in THIS turn counts (a late result from the previous
+  // turn could still arrive just after it starts).
+  if (!spokeInTurn || performance.now() - turnStarted < 1000) return;
+  if (!m.ayah || m.ayah.index !== session.to) return;
+  const len = normalize(ayahParts(session.to).text).length;
+  if (m.letter >= len - 2) reachedEnd = true;
+}
+
+function endTurn() {
+  if (screenName !== 'turn') return;
+  clearInterval(clockTimer);
+  session.reciters[session.i].seconds = Math.round((performance.now() - turnStarted) / 1000);
+  $('checkBar').style.width = '0%';
+  screen('checking');
+  worker.postMessage({ type: 'turnEnd' });
+}
+
+function showResult(r) {
+  if (!session) return;
+  const who = session.reciters[session.i];
+  who.result = r;
+  $('resultWho').textContent = `${who.name} · ${refLabel(session.from, session.to)} · ${Math.floor(who.seconds / 60)}:${String(who.seconds % 60).padStart(2, '0')}`;
+  $('resultScore').textContent = Math.round(r.score);
+  const count = (m) => r.marks.filter((x) => x === m).length;
+  $('cntCorrect').textContent = count('correct');
+  $('cntMistake').textContent = count('mistake');
+  $('cntSkipped').textContent = count('skipped');
+  $('cntUnread').textContent = count('unread');
+
+  // The passage with every word marked.
+  const review = $('review');
+  review.replaceChildren();
+  let line = null, lineAyah = -1;
+  r.words.forEach((w, k) => {
+    if (w.ayah !== lineAyah) {
+      if (line) review.append(line);
+      line = document.createElement('p');
+      line.className = 'ayah-line';
+      lineAyah = w.ayah;
+    }
+    const span = document.createElement('span');
+    span.className = `w ${r.marks[k]}`;
+    span.textContent = w.text;
+    line.append(span, ' ');
+    const next = r.words[k + 1];
+    if (!next || next.ayah !== w.ayah) {
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = '۝' + arNum(data.ayat[w.ayah][1]);
+      line.append(num);
+    }
+  });
+  if (line) review.append(line);
+
+  const last = session.i === session.reciters.length - 1;
+  $('resultNext').textContent = last ? (session.reciters.length > 1 ? 'See the scoreboard' : 'Done') : `Next: ${session.reciters[session.i + 1].name}`;
+  screen('result');
+}
+
+$('readyGo').onclick = beginTurn;
+$('turnDone').onclick = endTurn;
+$('resultRetry').onclick = () => showReady();
+$('resultNext').onclick = () => {
+  if (session.i < session.reciters.length - 1) { session.i++; showReady(); return; }
+  if (session.reciters.length > 1) showBoard(); else openSetup(session.mode);
+};
+
+function showBoard() {
+  const ranked = session.reciters.filter((r) => r.result)
+    .sort((a, b) => b.result.score - a.result.score || a.seconds - b.seconds);
+  const medals = ['🥇', '🥈', '🥉'];
+  $('boardPassage').textContent = refLabel(session.from, session.to) + (session.hide ? ' · from memory' : '');
+  $('board').replaceChildren(...ranked.map((r, k) => {
+    const li = document.createElement('li');
+    const t = `${Math.floor(r.seconds / 60)}:${String(r.seconds % 60).padStart(2, '0')}`;
+    li.innerHTML = `<span class="place"></span><span class="who"></span><span class="sub"></span><span class="pts"></span>`;
+    li.querySelector('.place').textContent = medals[k] || k + 1;
+    li.querySelector('.who').textContent = r.name;
+    li.querySelector('.sub').textContent = `${r.result.correct}/${r.result.total} words · ${t}`;
+    li.querySelector('.pts').textContent = `${Math.round(r.result.score)}%`;
+    return li;
+  }));
+  screen('board');
+}
+$('boardAgain').onclick = () => openSetup(session.mode);
+$('boardHome').onclick = goHome;
+
+function goHome() {
+  if (screenName === 'turn') { clearInterval(clockTimer); worker.postMessage({ type: 'turnEnd' }); }
+  session = null;
+  screen('home');
+}
+for (const b of document.querySelectorAll('.mode')) {
+  b.onclick = () => (b.dataset.mode === 'free' ? startFree() : openSetup(b.dataset.mode));
+}
+
+// ------------------------------------------------------------------ microphone
+async function listen() {
+  if (capture) { capture.stop(); capture = null; }
+  const wanted = store.get('input', '');
+  try {
+    capture = await openMic(wanted);
+  } catch (e) {
+    if (wanted) {
+      // The saved input is gone (unplugged / renamed): fall back to the default.
+      try { capture = await openMic(''); } catch (e2) { return micFailed(e2); }
+    } else {
+      return micFailed(e);
+    }
+  }
+  $('mic').classList.remove('off');
+  $('micName').textContent = capture.label;
+  quietSince = performance.now();
+  if (asrReady) status('listening', 'Listening');
+  fillInputs();
+}
+
+function openMic(deviceId) {
+  return startCapture({ deviceId, cleanup: store.get('cleanup', false) }, (chunk) => {
+    if (muted) return;
+    showLevel(chunk);
+    recorder.addAudio(chunk);
+    if (asrReady) worker.postMessage({ type: 'audio', samples: chunk }, [chunk.buffer]);
+  });
+}
+
+let muted = false;
+function setMuted(on) {
+  muted = on;
+  document.body.classList.toggle('muted', on);
+  $('btnMute').setAttribute('aria-pressed', on);
+  $('btnMute').title = on ? 'Unmute (M)' : 'Mute (M)';
+  $('micLevel').style.width = '0%';
+  if (on) status('manual', 'Muted');
+  else if (asrReady) status('listening', 'Listening');
+}
+
+function micFailed(e) {
+  const msg = micError(e);
+  $('mic').classList.add('off');
+  $('micName').textContent = 'Microphone not working: press S';
+  $('micHint').textContent = '';
+  $('heard').textContent = msg;
+  status('error', 'Microphone problem');
+  openSettings();
+}
+
+// Live level meter (footer + settings). Warn if nothing is heard for a while.
+let quietSince = performance.now();
+let meterShown = 0;
+function showLevel(chunk) {
+  let peak = 0;
+  for (let i = 0; i < chunk.length; i++) { const v = Math.abs(chunk[i]); if (v > peak) peak = v; }
+  // log scale so quiet mics still move the bar: 0.001 -> 0%, 0.5 -> 100%
+  const pct = Math.max(0, Math.min(100, ((Math.log10(Math.max(peak, 1e-4)) + 3) / 2.7) * 100));
+  const now = performance.now();
+  if (now - meterShown > 60) {
+    meterShown = now;
+    $('micLevel').style.width = pct + '%';
+    $('micLevel2').style.width = pct + '%';
+  }
+  if (peak > 0.004) quietSince = now;
+  const silent = now - quietSince > 6000;
+  $('micHint').textContent = silent ? 'No sound from this mic' : '';
+  $('mic').classList.toggle('warn', silent);
+}
+
+// ------------------------------------------------------------------ demo (no model)
+async function runDemo(spec) {
+  const [from, to] = spec.split('-');
+  const [s1, a1] = from.split(':').map(Number);
+  const [s2, a2] = (to || from).split(':').map(Number);
+  const i1 = data.ayat.findIndex(([s, a]) => s === s1 && a === a1);
+  const i2 = data.ayat.findIndex(([s, a]) => s === s2 && a === a2);
+  status('listening', 'Demo');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  await sleep(1200);
+  for (let i = i1; i <= i2; i++) {
+    const words = ayahParts(i).text.split(' ');
+    for (let w = 0; w < words.length; w += 3) {
+      worker.postMessage({ type: 'text', text: words.slice(w, w + 3).join(' ') });
+      await sleep(Number(params.get('pace') || 900));
+    }
+    await sleep(600);
+  }
+}
+
+// ------------------------------------------------------------------ settings
+function openSettings() {
+  $('settings').hidden = false;
+  document.body.classList.add('settings-open');
+  fillInputs();
+}
+function closeSettings() {
+  $('settings').hidden = true;
+  document.body.classList.remove('settings-open');
+}
+
+async function fillInputs() {
+  const sel = $('input');
+  try {
+    const inputs = await listInputs();
+    const opts = [new Option('System default', '')];
+    for (const [k, d] of inputs.entries()) {
+      if (d.deviceId === 'default' || d.deviceId === 'communications') continue;
+      opts.push(new Option(d.label || `Input ${k + 1}`, d.deviceId));
+    }
+    sel.replaceChildren(...opts);
+    sel.value = store.get('input', '');
+    if (sel.selectedIndex < 0) sel.value = '';
+  } catch { /* no permission yet */ }
+}
+navigator.mediaDevices?.addEventListener?.('devicechange', fillInputs);
+
+(function setupSettings() {
+  $('cleanup').checked = store.get('cleanup', false);
+  $('showTr').checked = store.get('showTr', true);
+  document.body.classList.toggle('no-tr', !$('showTr').checked);
+  // Switching the input takes effect straight away, so the meter shows it.
+  $('input').onchange = () => { store.set('input', $('input').value); listen(); };
+  $('cleanup').onchange = () => { store.set('cleanup', $('cleanup').checked); listen(); };
+  $('showTr').onchange = () => { store.set('showTr', $('showTr').checked); document.body.classList.toggle('no-tr', !$('showTr').checked); };
+  $('apply').onclick = closeSettings;
+  $('saveTest').onclick = () => { recorder.save(); $('saveTest').textContent = 'Saved to your Downloads folder'; setTimeout(() => { $('saveTest').textContent = 'Save test recording (last 2 min)'; }, 4000); };
+})();
+
+// ------------------------------------------------------------------ keys and controls
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input, select') && e.key !== 'Escape') return;
+  if (!$('settings').hidden && e.key !== 'Escape') return;
+  switch (e.key) {
+    case ' ': if (screenName === 'ready') { e.preventDefault(); beginTurn(); } break;
+    case 'Enter': if (screenName === 'turn') endTurn(); break;
+    case 'ArrowRight': case 'PageDown': if (following()) worker.postMessage({ type: 'next' }); break; // most clickers send these
+    case 'ArrowLeft': case 'PageUp': if (following()) worker.postMessage({ type: 'prev' }); break;
+    case 'm': case 'M': setMuted(!muted); break;
+    case 'h': case 'H': goHome(); break;
+    case 'S': if (e.ctrlKey && e.shiftKey) { recorder.save(); break; } openSettings(); break;
+    case 's': openSettings(); break;
+    case 'b': case 'B': case '.': $('blank').classList.toggle('on'); break;
+    case 'Escape': closeSettings(); $('blank').classList.remove('on'); break;
+    case 'f': case 'F': document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); break;
+  }
+});
+
+window.addEventListener('resize', () => shown >= 0 && fit());
+// The Arabic font arrives after the first ayah may already be drawn: re-fit then.
+document.fonts?.addEventListener?.('loadingdone', () => shown >= 0 && fit());
+document.fonts?.ready.then(() => shown >= 0 && fit());
+$('mic').addEventListener('click', openSettings);
+
+// Controls and the pointer show only while the mouse moves (it's a TV).
+let cursorTimer = 0;
+function wake() {
+  document.body.classList.add('cursor-on');
+  clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => {
+    if (!$('controls').matches(':hover')) document.body.classList.remove('cursor-on');
+    else wake();
+  }, 3000);
+}
+window.addEventListener('mousemove', wake);
+window.addEventListener('touchstart', wake);
+
+const post = (type) => () => worker.postMessage({ type });
+$('btnHome').onclick = goHome;
+$('btnPrev').onclick = post('prev');
+$('btnNext').onclick = post('next');
+$('btnMute').onclick = () => setMuted(!muted);
+$('btnBlank').onclick = () => $('blank').classList.toggle('on');
+$('btnSettings').onclick = openSettings;
+$('btnFull').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
+$('blank').addEventListener('click', () => $('blank').classList.remove('on'));
+try { await navigator.wakeLock?.request('screen'); } catch { /* not supported */ }
+screen('home');
