@@ -1,32 +1,20 @@
-// Follows the imam through the Quran.
+// Follows a reciter through the Quran.
 //
-// Feed it the letters the speech model recognised every ~0.5-1 s with push().
-// It answers with the ayah to show. Rules:
-//   - LOCKED: match the newest letters just around where the imam was. Moving
-//     forward, staying, or stepping back a little (a repeated ayah) are all cheap.
+// Feed it the letters the speech model recognised (push() for new letters,
+// observe() for a sliding window). It answers with the ayah to show and how
+// far into it the reciter is (for word highlighting). Rules:
+//   - LOCKED: match the newest letters just after where the reciter was, so the
+//     highlight moves word by word. Repeats and skips are allowed but need a
+//     clearer match.
 //   - SEARCHING: if that keeps failing, look across the whole Quran. Only jump
-//     when two checks in a row agree, and prefer places near the current khatm
-//     position and al-Fatiha.
+//     when checks agree, and prefer places near the last position and al-Fatiha.
 //   - Never guess: while unsure, keep showing the last ayah.
-//   - al-Fatiha is tracked separately: after it ends, carry on from the saved
-//     khatm position.
+//   - al-Fatiha (often recited before a surah) is tracked separately: after it
+//     ends, carry on from the saved position.
 
 import { normalize } from './normalize.js';
 import { align } from './align.js';
 import { GRAM } from './quran-index.js';
-
-// Things the imam says aloud that aren't Quran. When heard, the screen holds
-// and the buffer is cleared so they can't push the position forward.
-// Each also appears (or could appear) inside an ayah: "الله أكبر" in 9:72,
-// 29:45 and 40:10, "أمين" (trustworthy) in 26:107 and others. So a call only
-// counts when the ayah being recited doesn't continue with those same words.
-const CALLS = [
-  { type: 'takbir', text: 'الله اكبر' },
-  { type: 'tasmi', text: 'سمع الله لمن حمده' },
-  { type: 'tahmid', text: 'ربنا ولك الحمد' },
-  { type: 'ameen', text: 'امين' },
-  { type: 'salam', text: 'السلام عليكم ورحمة الله' },
-].map((c) => ({ ...c, norm: normalize(c.text) }));
 
 const DEFAULTS = {
   maxQuery: 40,        // letters of recent speech to match
@@ -34,14 +22,14 @@ const DEFAULTS = {
   minLockedQuery: 8,   // letters needed to follow from a known position
   lockAccept: 0.55,    // LOCKED: alignment quality to accept a normal step forward
   jumpAccept: 0.6,     // LOCKED: quality to accept a jump within the window
-  stepPenalty: 0.35,   // score lost per letter away from where the imam should be
+  stepPenalty: 0.35,   // score lost per letter away from where the reciter should be
   stepSlack: 8,        // letters of free movement around that point
   catchUp: 1,          // share of what was heard that may be new when behind
   minIntoAyah: 3,      // letters of the next ayah heard before it is shown
   backSlack: 12,       // small backward wobbles of the highlight are ignored
-  backAccept: 0.62,
+  backAccept: 0.62,    // LOCKED: quality needed to step backwards (repeats)
   skipAccept: 0.68,    // LOCKED: quality needed to skip past the next ayah
-  skipMinQuery: 24,    // ...and at least this many letters heard    // LOCKED: quality needed to step backwards (repeats)
+  skipMinQuery: 24,    // ...and at least this many letters heard
   searchAccept: 0.65,  // SEARCHING: quality needed for a candidate
   fatihaSwitch: 0.7,   // LOCKED elsewhere -> jump into al-Fatiha
   fatihaProbe: 24,     // newest letters used for that check
@@ -52,14 +40,7 @@ const DEFAULTS = {
   fwd: 450,            // letters allowed forwards
   ambiguityGap: 0.06,  // top-2 candidates closer than this = ambiguous
   maxGramHits: 1500,   // ignore very common 4-grams when voting
-  callMatch: 0.7,
-  shortCallMatch: 0.8, // takbir, ameen
-  callBack: 4,         // letters behind / ahead of the imam's position checked:
-                       // the tracker never runs ahead of him, so the words he is
-                       // about to say are ahead; looking back would see the words
-                       // he just finished (29:45 ends near "الله أكبر")
-  callAhead: 140,      //   for the call's words inside the ayah
-  coldMinQuery: 30,    // letters needed before a cold-start search may lock      // how closely a takbir / "Ameen" must match to count
+  coldMinQuery: 30,    // letters needed before a cold-start search may lock
 };
 
 export class Tracker {
@@ -84,14 +65,7 @@ export class Tracker {
     this.offset = 0;
   }
 
-  /** Copy of the position, to undo whatever was heard during ruku' and sujood. */
-  snapshot() {
-    const { state, buf, pos, khatmPos, shown, fails, silence, pending, offset } = this;
-    return { state, buf, pos, khatmPos, shown, fails, silence, pending, offset };
-  }
-  restore(s) { Object.assign(this, s); }
-
-  /** Tell it where tonight starts (e.g. first ayah of the juz). */
+  /** Tell it where the recitation starts (a surah and ayah). */
   setStart(surah, ayah) {
     const i = this.ix.indexOf(surah, ayah);
     if (i < 0) throw new Error(`no such ayah ${surah}:${ayah}`);
@@ -130,7 +104,7 @@ export class Tracker {
    * Live mode: feed the transcript of the last few seconds of audio (a sliding
    * window), every hop. newFraction = share of the window that is new audio.
    * When the result says clearAudio, drop the audio heard so far, so stale
-   * words (a takbir, the end of al-Fatiha) aren't heard again.
+   * words (the end of al-Fatiha) aren't heard again.
    */
   observe(windowText, newFraction = 0.2) {
     const all = normalize(windowText);
@@ -141,10 +115,6 @@ export class Tracker {
 
   /** Nothing recognised (silence) for one hop. */
   _silent() {
-    this.progressed = false;
-    this.call = null;
-    this.speech = false;
-    this.heard = '';
     if (++this.silence >= this.o.silenceClear && this.buf) this._clear();
     return this._result(false);
   }
@@ -157,14 +127,6 @@ export class Tracker {
   _step(buf) {
     this.silence = 0;
     this.buf = buf;
-    this.progressed = false;
-    this.speech = true;
-    this.heard = buf;
-    this.call = this._heardCall();
-    if (this.call) {
-      this._clear();
-      return this._result(false);
-    }
     // Following needs only a few letters (the expected position makes short
     // queries safe: "عم يتساءلون" is 9 letters); a search needs more.
     const need = this.state === 'LOCKED' ? this.o.minLockedQuery : this.o.minQuery;
@@ -176,46 +138,13 @@ export class Tracker {
     return this._result(this.shown !== before);
   }
 
-  /** Returns the call just heard ('takbir', 'tasmi', ...) or null. */
-  _heardCall() {
-    for (const c of CALLS) {
-      const tail = this.buf.slice(-(c.norm.length + 4));
-      if (tail.length < c.norm.length - 1) continue;
-      // Short calls need a closer match: "الله الكافرين" is two letters from "الله أكبر".
-      const need = c.norm.length <= 8 ? this.o.shortCallMatch : this.o.callMatch;
-      if (align(c.norm, tail, 0, tail.length).norm < need) continue;
-      if (this._inAyah(c.norm)) continue; // it's the ayah itself, keep following
-      return c.type;
-    }
-    return null;
-  }
-
-  /** Is this call's phrase what the ayah says next? (type: 'takbir', ...) */
-  _inAyahType(type) {
-    const c = CALLS.find((x) => x.type === type);
-    return !!c && this._inAyah(c.norm);
-  }
-
-  /** Do the words around the imam's position contain this phrase? */
-  _inAyah(phrase) {
-    if (this.state !== 'LOCKED' || this.pos < 0) return false;
-    const { letters } = this.ix;
-    // Look back far enough to cover the phrase being said right now (the
-    // tracker may already be partway into it), but not so far that it sees
-    // words already finished (29:45 has "الله أكبر" ~25 letters before its end).
-    const lo = this.pos - Math.max(this.o.callBack, phrase.length + 4), hi = this.pos + this.o.callAhead;
-    // Exact test on the Quran text itself: "الله" is everywhere, so a loose
-    // match would hide real takbirs.
-    return letters.slice(Math.max(0, lo), Math.min(letters.length, hi)).includes(phrase);
-  }
-
   // ---------------------------------------------------------------- LOCKED
   _locked() {
     const { letters, ayahStart, ayahOf, fatihaEnd } = this.ix;
     const q = this.buf;
     const inFatiha = this.pos < fatihaEnd;
 
-    // The ayah the imam is in, from his position (not from the screen: after
+    // The ayah the reciter is in, from his position (not from the screen: after
     // al-Fatiha the screen still shows 1:7 while he is back at the khatm).
     // pos is just after the last letter heard, so at the start of an ayah it
     // already points into that ayah.
@@ -225,7 +154,7 @@ export class Tracker {
     let lo = this.pos - back - q.length;
     let hi = this.pos + this.o.fwd;
     if (inFatiha) { lo = 0; hi = fatihaEnd; }
-    // 1. Normal case: the imam carries on from where he was. Prefer the end
+    // 1. Normal case: the reciter carries on from where he was. Prefer the end
     //    just after the last position (what was newly heard), so the
     //    highlight moves word by word and never hops to the same phrase
     //    elsewhere in the window.
@@ -253,7 +182,7 @@ export class Tracker {
     }
 
     // Not matching here. A new rak'ah starting with al-Fatiha is the usual reason.
-    // Check only the newest letters: older ones are still from before the takbir.
+    // Check only the newest letters: older ones are still from before al-Fatiha.
     if (!inFatiha) {
       const recent = q.slice(-this.o.fatihaProbe);
       const f = align(recent, letters, 0, fatihaEnd);
@@ -273,8 +202,6 @@ export class Tracker {
 
   _accept(r) {
     const { ayahOf, fatihaEnd } = this.ix;
-    // Recitation moved on (used by the salah tracker to cancel a false takbir).
-    if (r.end > this.pos + 2 || ayahOf[Math.max(0, r.end - 1)] !== this.shown) this.progressed = true;
     this.pos = r.end;
     this.fails = 0;
     this.confidence = r.norm;
@@ -288,7 +215,7 @@ export class Tracker {
       ayah = ayahOf[Math.max(0, this.ix.ayahStart[ayah] - 1)]; // stay on the ayah before it
     }
     const offset = r.end - this.ix.ayahStart[ayah];
-    // Within the same ayah the highlight only moves forward, unless the imam
+    // Within the same ayah the highlight only moves forward, unless the reciter
     // clearly went back (a repeat).
     if (ayah === this.shown && offset < this.offset && this.offset - offset < this.o.backSlack) {
       // keep the current highlight
@@ -381,14 +308,6 @@ export class Tracker {
     const clearAudio = this.cleared;
     this.cleared = false;
     // letter: how many letters of the shown ayah have been recited so far.
-    const call = this.call || null;
-    const progressed = !!this.progressed;
-    const speech = !!this.speech;
-    const heard = this.heard || '';
-    this.call = null;
-    this.progressed = false;
-    this.speech = false;
-    this.heard = '';
-    return { state: this.state, ayah: ref, letter: this.offset, changed, clearAudio, call, progressed, speech, heard, confidence: Number(this.confidence.toFixed(2)) };
+    return { state: this.state, ayah: ref, letter: this.offset, changed, clearAudio, confidence: Number(this.confidence.toFixed(2)) };
   }
 }

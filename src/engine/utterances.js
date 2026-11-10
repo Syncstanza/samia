@@ -1,12 +1,9 @@
-// Splits the audio into stretches of speech ("utterances") in 20 ms frames,
-// so we know how something was said:
+// Tracks voice vs. silence in 20 ms frames, relative to the room's own
+// background, and splits the audio into stretches of speech ("utterances"):
 //   dur        how long the latest stretch of speech lasted (seconds)
 //   gapBefore  the silence just before it (seconds)
 //   gapAfter   silence since it ended (0 while still speaking)
-//
-// A takbir for ruku' or sujood usually comes after a pause and is drawn out
-// ("اللّٰهُ أكبـــر"); "الله أكبر" inside an ayah runs on with the words
-// around it. Short gaps between words (< 0.2 s) don't split an utterance.
+// Short gaps between words (< 0.2 s) don't split an utterance.
 
 const FRAME = 0.02;     // seconds
 const JOIN_GAP = 0.2;   // silences shorter than this stay inside one utterance

@@ -27,10 +27,6 @@ export class TestRecorder {
       ayah: m.ayah ? `${m.ayah.surah}:${m.ayah.ayah}` : null,
       letter: m.letter,
       state: m.state,
-      position: m.salah ? m.salah.position : null,
-      rakah: m.salah ? m.salah.rakah : null,
-      call: m.call || null,
-      utteranceCall: m.utteranceCall ? m.utteranceCall.type : null,
       level: m.level ? +m.level.toFixed(4) : 0,
       ms: m.ms,
     });

@@ -1,69 +1,68 @@
-// Background worker: keeps the last few seconds of audio, runs the speech model
-// on them every hop, and moves the verse tracker and the prayer position.
+// Background worker: listens, follows the reciter, and scores turns.
 // The display thread only draws.
 //
-// Messages in:  {type:'init', modelUrl, tokensUrl, dataUrl, takbirUrl}
+// Messages in:  {type:'init', modelUrl, tokensUrl, dataUrl}
 //               {type:'audio', samples: Float32Array (16 kHz)}
-//               {type:'text', text}            (demo / testing without a model)
-//               {type:'salah', istirahah}
-//               {type:'start', surah, ayah} | {type:'next'} | {type:'prev'}
-//               {type:'jump', index} | {type:'reset'}
-// Messages out: {type:'ready', asr: boolean} | {type:'error', message}
-//               {type:'update', state, ayah, letter, changed, salah, phase, heard, level}
+//               {type:'text', text}                 (demo / testing without a model)
+//               {type:'start', surah, ayah} | {type:'next'} | {type:'prev'} | {type:'jump', index} | {type:'reset'}
+//               {type:'turnStart', from, to}        (global ayah indices of the passage)
+//               {type:'turnEnd'}                    (stop and score the turn)
+// Messages out: {type:'ready', asr} | {type:'error', message}
+//               {type:'update', state, ayah, letter, changed, heard, level}
+//               {type:'scoring', progress} | {type:'score', result}
 
 import { buildIndex } from './quran-index.js';
 import { Tracker } from './tracker.js';
 import { QuranAsr } from './asr.js';
-import { Salah } from './salah.js';
-import { followHop } from './follow.js';
 import { Listener } from './listener.js';
+import { buildPassage, scoreHeard, transcribeTurn } from './score.js';
+import { normalize } from './normalize.js';
 
+let data = null;
 let ix = null;
 let tracker = null;
-let takbirAyat = null;
-let istirahah = false;
-let salah = new Salah();
 let asr = null;
 let listener = null;
+let turn = null;      // {from, to} while a turn is running
+let demoHeard = '';   // demo mode: text "heard" during a turn
 
 const post = (m) => self.postMessage(m);
-const newSalah = () => new Salah({ takbirAyat, istirahah });
 const clearAudio = () => listener && listener.clearAudio();
+const send = (res) => post({ type: 'update', ...res, heard: '', level: 0 });
 
 self.onmessage = async ({ data: msg }) => {
   try {
     switch (msg.type) {
       case 'init': return await init(msg);
       case 'audio': return listener && listener.add(msg.samples, (out) => post({ type: 'update', ...out }));
-      case 'text': {
-        // Demo: typed text stands in for speech; '' = a silent moment.
-        const utter = msg.utter || (msg.text ? { dur: 0.6, gapBefore: 0.1 } : null);
-        return post({ type: 'update', ...followHop(tracker, salah, { text: msg.text, push: true, dt: 0.9, utter }), heard: msg.text, level: 0 });
-      }
-      case 'salah':
-        istirahah = !!msg.istirahah; salah = newSalah();
-        if (listener) listener.salah = salah;
-        return send(tracker._result(false));
+      case 'text':
+        if (turn) demoHeard += normalize(msg.text);
+        return post({ type: 'update', ...tracker.push(msg.text), heard: msg.text, level: 0 });
       case 'start': tracker.setStart(msg.surah, msg.ayah); clearAudio(); return send(tracker._result(true));
       case 'next': clearAudio(); return send(tracker.next());
       case 'prev': clearAudio(); return send(tracker.prev());
       case 'jump': clearAudio(); return send(tracker.jumpTo(msg.index));
       case 'reset': tracker.reset(); clearAudio(); return send(tracker._result(true));
+      case 'turnStart': {
+        turn = { from: msg.from, to: msg.to };
+        demoHeard = '';
+        const r = ix.ref(msg.from);
+        tracker.setStart(r.surah, r.ayah);
+        clearAudio();
+        if (listener) listener.startRecording();
+        return send(tracker._result(true));
+      }
+      case 'turnEnd': return await endTurn();
     }
   } catch (e) {
     post({ type: 'error', message: String(e && e.message || e) });
   }
 };
 
-async function init({ modelUrl, tokensUrl, dataUrl, takbirUrl }) {
-  const data = await (await fetch(dataUrl)).json();
+async function init({ modelUrl, tokensUrl, dataUrl }) {
+  data = await (await fetch(dataUrl)).json();
   ix = buildIndex(data);
   tracker = new Tracker(ix);
-  try {
-    const list = (await (await fetch(takbirUrl)).json()).ayat;
-    takbirAyat = new Set(list.map(([s, a]) => ix.indexOf(s, a)).filter((i) => i >= 0));
-  } catch { takbirAyat = null; }
-  salah = newSalah();
   if (modelUrl) {
     try {
       const ort = await import('/vendor/ort/ort.wasm.min.mjs');
@@ -74,7 +73,7 @@ async function init({ modelUrl, tokensUrl, dataUrl, takbirUrl }) {
         fetch(tokensUrl).then((r) => r.text()),
       ]);
       asr = await QuranAsr.load(ort, new Uint8Array(model), tokens, { executionProviders: ['wasm'] });
-      listener = new Listener(asr, tracker, salah);
+      listener = new Listener(asr, tracker);
     } catch (e) {
       post({ type: 'error', message: `Speech model not loaded: ${e.message}` });
     }
@@ -82,8 +81,17 @@ async function init({ modelUrl, tokensUrl, dataUrl, takbirUrl }) {
   post({ type: 'ready', asr: !!asr });
 }
 
-// Manual moves and settings: show the result without stepping the prayer state.
-function send(res) {
-  const v = salah.view();
-  post({ type: 'update', ...res, salah: v, phase: v.phase, heard: '', level: 0 });
+async function endTurn() {
+  if (!turn) return;
+  const { from, to } = turn;
+  turn = null;
+  const passage = buildPassage(data, from, to);
+  let heard = demoHeard;
+  if (listener) {
+    const audio = listener.stopRecording();
+    post({ type: 'scoring', progress: 0 });
+    heard = await transcribeTurn(asr, audio, (p) => post({ type: 'scoring', progress: p }));
+  }
+  const result = scoreHeard(passage, heard);
+  post({ type: 'score', result: { ...result, from, to, words: passage.words.map((w) => ({ ayah: w.ayah, k: w.k, text: w.text })) } });
 }

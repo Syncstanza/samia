@@ -9,7 +9,6 @@ import * as ort from 'onnxruntime-web';
 import { QuranAsr } from '../src/engine/asr.js';
 import { buildIndex } from '../src/engine/quran-index.js';
 import { Tracker } from '../src/engine/tracker.js';
-import { Salah } from '../src/engine/salah.js';
 import { Listener, SR } from '../src/engine/listener.js';
 
 const MODEL = new URL('../models/quran-asr-tiny/', import.meta.url);
@@ -48,10 +47,9 @@ let off = 0;
 for (const p of parts) { audio.set(p, off); off += p.length; }
 
 const tr = new Tracker(ix, penalty === '' ? {} : { stepPenalty: Number(penalty), minIntoAyah: Number(penalty) ? 3 : 0 });
-const salah = new Salah();
 const first = ix.ref(clips[0].ayah);
 tr.setStart(first.surah, first.ayah);
-const listener = new Listener(asr, tr, salah, { hop: Number(hop), window: Number(win), minVoiced: vad === '1' ? 0.12 : 0 });
+const listener = new Listener(asr, tr, { hop: Number(hop), window: Number(win), minVoiced: vad === '1' ? 0.12 : 0 });
 
 let hops = 0, correct = 0, lag = 0, wrong = 0, hlN = 0, hlErr = 0, hlAhead = 0, backMoves = 0, gapHops = 0, gapSpeech = 0;
 let lastLetter = -1, lastShown = -1, slowest = 0;
