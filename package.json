@@ -3,13 +3,19 @@
   "productName": "Sami'a",
   "version": "0.0.1",
   "description": "Live Quran recitation display for masjids. Free and offline.",
-  "author": "Syncstanza",
+  "author": {
+    "name": "Syncstanza",
+    "email": "200555248+MarineG094@users.noreply.github.com"
+  },
   "license": "Apache-2.0",
   "private": true,
   "main": "src/main/main.js",
   "repository": "github:Syncstanza/samia",
   "devDependencies": {
+    "@fontsource/amiri-quran": "^5.3.0",
     "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "onnxruntime-web": "^1.31.1",
     "quran-json": "^1.0.1",
     "quran-meta": "^7.0.0"
   },
@@ -21,10 +27,60 @@
     "model": "node tools/download-model.mjs",
     "build:data": "node tools/build-quran-data.mjs",
     "simulate": "node tools/simulate.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "postinstall": "node tools/vendor.mjs",
+    "dist": "electron-builder --win portable nsis",
+    "dist:linux": "electron-builder --linux AppImage"
   },
-  "dependencies": {
-    "@fontsource/amiri-quran": "^5.3.0",
-    "onnxruntime-web": "^1.31.1"
+  "homepage": "https://github.com/Syncstanza/samia",
+  "build": {
+    "appId": "com.syncstanza.samia",
+    "productName": "Samia",
+    "copyright": "Syncstanza",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "data/**/*",
+      "models/**/*",
+      "vendor/**/*",
+      "docs/logo.png",
+      "package.json",
+      "LICENSE",
+      "ATTRIBUTION.md"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "icon": "build/icon.png",
+      "executableName": "Samia"
+    },
+    "portable": {
+      "artifactName": "Samia-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Sami'a",
+      "runAfterFinish": true,
+      "artifactName": "Samia-Setup-${version}.exe",
+      "uninstallDisplayName": "Sami'a"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "build/icon.png",
+      "category": "Utility",
+      "maintainer": "Syncstanza <200555248+MarineG094@users.noreply.github.com>",
+      "synopsis": "Live Quran recitation display for masjids",
+      "artifactName": "Samia-${version}.${ext}"
+    }
   }
 }

@@ -49,8 +49,8 @@ async function init({ modelUrl, tokensUrl, dataUrl }) {
   tracker = new Tracker(buildIndex(data));
   if (modelUrl) {
     try {
-      const ort = await import('/node_modules/onnxruntime-web/dist/ort.wasm.min.mjs');
-      ort.env.wasm.wasmPaths = '/node_modules/onnxruntime-web/dist/';
+      const ort = await import('/vendor/ort/ort.wasm.min.mjs');
+      ort.env.wasm.wasmPaths = '/vendor/ort/';
       ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1;
       const [model, tokens] = await Promise.all([
         fetch(modelUrl).then((r) => { if (!r.ok) throw new Error('model not found'); return r.arrayBuffer(); }),

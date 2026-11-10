@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 
 // Only these folders are served (no source maps of the whole disk, no .git).
-const ALLOWED = ['src/renderer', 'src/engine', 'data', 'models', 'docs', 'node_modules/onnxruntime-web/dist', 'node_modules/@fontsource/amiri-quran'];
+const ALLOWED = ['src/renderer', 'src/engine', 'data', 'models', 'docs', 'vendor'];
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
