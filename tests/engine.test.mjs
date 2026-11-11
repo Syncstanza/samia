@@ -104,3 +104,16 @@ test('a turn never leaves its passage', () => {
     if (r.ayah) assert.ok(r.ayah.index >= from && r.ayah.index <= to, `left the passage: ${r.ayah.surah}:${r.ayah.ayah}`);
   }
 });
+
+test('a repeated word: the first one is not skipped when the model runs ahead', () => {
+  // Real case (al-Fatiha 1:7): the reciter has said "...أنعمت عليهم" but the speech
+  // model, knowing the ayah, already writes "...عليهم ولا الضالين".
+  const tr = new Tracker(ix);
+  const i = ix.indexOf(1, 7);
+  tr.jumpTo(i);
+  tr.push('صراط الذين أنعمت عليهم');
+  const firstEnd = tr.pos;
+  const r = tr.observe('صرط الذين انعمت عليهم ولا الضالين', 0.3);
+  assert.ok(tr.pos - firstEnd < 6, `jumped ${tr.pos - firstEnd} letters past the first عليهم`);
+  assert.equal(r.ayah.index, i);
+});
