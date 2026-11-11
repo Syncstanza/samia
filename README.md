@@ -14,6 +14,12 @@
 ![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624)
 ![License](https://img.shields.io/badge/license-Apache--2.0-lightgrey)
 
+<br>
+
+<img src="docs/screenshots/free-recite.jpg" width="900" alt="Sami'a following a recitation of Surah An-Naba: the current ayah large in the middle with its translation, the previous and next ayat faded above and below">
+
+<sub>Free recite: the ayah being recited, lit up word by word, with the translation underneath.</sub>
+
 </div>
 
 ---
@@ -45,6 +51,45 @@ Windows may say "Windows protected your PC" because the app isn't signed yet: cl
 | 📶 **No internet needed** | Speech recognition runs on the computer itself. |
 | 🔒 **Nothing is recorded** | Audio is processed live and thrown away. Nothing is saved or sent anywhere. |
 | 🌍 **More languages** | Bengali, Urdu and more translations come *later*. |
+
+---
+
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/home.jpg" alt="Home screen with three modes: Free recite, Competition, Hifz test"></td>
+    <td width="50%"><img src="docs/screenshots/finding-the-place.jpg" alt="Free recite while it is still finding the place, showing the words it hears"></td>
+  </tr>
+  <tr>
+    <td><b>Home</b>: pick a mode.</td>
+    <td><b>Free recite</b>: shows what it hears until it finds the ayah, usually within a few seconds.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/competition-choice.jpg" alt="Competition choice: School / Masjid or Friends"></td>
+    <td><img src="docs/screenshots/judged-turn.jpg" alt="A reciter's turn in a judged competition, with the name and clock at the top"></td>
+  </tr>
+  <tr>
+    <td><b>Competition</b>: judged by people (School / Masjid) or scored by Sami'a (Friends).</td>
+    <td><b>A turn</b>: the audience follows the reciter's ayat on the big screen.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/score.jpg" alt="Score screen: percentage and every word marked correct, check or skipped"></td>
+    <td><img src="docs/screenshots/scoreboard.jpg" alt="Scoreboard ranking the reciters"></td>
+  </tr>
+  <tr>
+    <td><b>Score</b>: every word marked: correct, 🟡 check, ❌ skipped.</td>
+    <td><b>Scoreboard</b>: Friends competitions rank everyone at the end.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/hifz-test.jpg" alt="Hifz test: the text is hidden and appears as it is recited"></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><b>Hifz test</b>: the text stays hidden and appears only as you recite it.</td>
+    <td></td>
+  </tr>
+</table>
 
 ---
 
