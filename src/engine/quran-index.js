@@ -60,5 +60,13 @@ export function buildIndex(data) {
     return -1;
   };
 
-  return { letters, ayahOf, ayahStart, grams, count: ayat.length, ref, indexOf, fatihaEnd: ayahStart[7] };
+  // Letter range of each surah, for keeping to the surah being recited.
+  const surahRange = (i) => {
+    const s = ayat[i][0];
+    let a = i, z = i;
+    while (a > 0 && ayat[a - 1][0] === s) a--;
+    while (z + 1 < ayat.length && ayat[z + 1][0] === s) z++;
+    return { lo: ayahStart[a], hi: ayahStart[z + 1] ?? letters.length, first: a, last: z };
+  };
+  return { letters, ayahOf, ayahStart, grams, count: ayat.length, ref, indexOf, surahRange, fatihaEnd: ayahStart[7] };
 }

@@ -8,6 +8,10 @@
 //     clearer match.
 //   - SEARCHING: if that keeps failing, look across the whole Quran. Only jump
 //     when checks agree, and prefer places near the last position and al-Fatiha.
+//   - Expect what comes next: near the end of an ayah, the opening words of the
+//     next one (often only 4-6 letters, "ألم تر", "وثمود") are enough to move.
+//   - Keep to the surah: once found, losing the place means looking again in
+//     the same surah first; the whole Quran only if that keeps failing.
 //   - Never guess: while unsure, keep showing the last ayah.
 //   - al-Fatiha (often recited before a surah) is tracked separately: after it
 //     ends, carry on from the saved position.
@@ -45,6 +49,10 @@ const DEFAULTS = {
   coldShortQuery: 12,  // ...unless at least this many match this clearly
   coldShortAccept: 0.85,
   coldHits: 2,         // agreeing checks in a row needed from cold
+  anchorMin: 4,        // letters of the next ayah's opening that are enough to move to it...
+  anchorAccept: 0.8,   // ...when they match this clearly
+  anchorNearEnd: 0.4,  // ...and the reciter is in the last 40% of the ayah (or 8 letters)
+  surahTries: 3,       // looks within the surah before searching the whole Quran
 };
 
 export class Tracker {
@@ -68,6 +76,7 @@ export class Tracker {
     this.cleared = false;
     this.offset = 0;
     this.bounds = null;   // {lo, hi} letter range a turn is limited to
+    this.surahMisses = 0;
   }
 
   /**
@@ -150,12 +159,42 @@ export class Tracker {
     // Following needs only a few letters (the expected position makes short
     // queries safe: "عم يتساءلون" is 9 letters); a search needs more.
     const need = this.state === 'LOCKED' ? this.o.minLockedQuery : this.o.minQuery;
-    if (this.buf.length < need) return this._result(false);
-
     const before = this.shown;
+    if (this.buf.length < need) {
+      // Too little to follow on its own, but it may be the start of the ayah
+      // that comes next.
+      if (this.state === 'LOCKED' && this.buf.length >= this.o.anchorMin) this._anchor();
+      return this._result(this.shown !== before);
+    }
+
     if (this.state === 'LOCKED') this._locked();
     else this._search();
     return this._result(this.shown !== before);
+  }
+
+  /**
+   * The reciter is near the end of an ayah: if the newest letters are the
+   * opening of the next ayah, move there. The expected place makes a few
+   * letters safe (they must match from the very start of that ayah).
+   */
+  _anchor() {
+    const { letters, ayahStart, ayahOf, count } = this.ix;
+    const done = ayahOf[Math.max(0, this.pos - 1)];
+    const next = done + 1;
+    if (next >= count) return false;
+    const start = ayahStart[next];
+    if (this.bounds && start >= this.bounds.hi) return false;
+    const len = start - ayahStart[done];
+    const left = start - this.pos;
+    if (left > Math.max(8, len * this.o.anchorNearEnd)) return false;
+    const q = this.buf;
+    const end = Math.min(letters.length, start + q.length + 6, ayahStart[next + 1] ?? letters.length);
+    const r = align(q, letters, Math.max(0, start - 6), end);
+    if (r.end - start < this.o.anchorMin || r.norm < this.o.anchorAccept) return false;
+    // The match must reach the next ayah from its beginning, not land inside it.
+    if (r.start > start + 1) return false;
+    this._accept(r);
+    return true;
   }
 
   // ---------------------------------------------------------------- LOCKED
@@ -227,8 +266,20 @@ export class Tracker {
       return;
     }
     if (++this.fails >= this.o.failsToSearch) {
-      this.state = 'SEARCHING';
-      this.pending = null;
+      this.fails = 0;
+      // Lost the place: look again in the same surah first (and the start of
+      // the next one). The whole Quran only if that keeps failing.
+      if (!inFatiha && q.length >= this.o.minQuery) {
+        const sr = this.ix.surahRange(curAyah);
+        const nextSurahEnd = sr.last + 2 < this.ix.count ? ayahStart[sr.last + 2] : letters.length;
+        const w = align(q, letters, sr.lo, nextSurahEnd, expect);
+        if (w.norm >= this.o.searchAccept) { this.surahMisses = 0; this._accept(w); return; }
+      }
+      if (++this.surahMisses >= this.o.surahTries) {
+        this.surahMisses = 0;
+        this.state = 'SEARCHING';
+        this.pending = null;
+      }
     }
   }
 
@@ -236,6 +287,7 @@ export class Tracker {
     const { ayahOf, fatihaEnd } = this.ix;
     this.pos = r.end;
     this.fails = 0;
+    this.surahMisses = 0;
     this.confidence = r.norm;
     this.state = 'LOCKED';
     // Show the ayah containing the most recent matched letter, once its first
