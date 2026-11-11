@@ -1,0 +1,76 @@
+name: Taraweeh build
+# The taraweeh version (follows the imam, prayer positions, dua screen), kept on its own
+# branch after the main app became Quran karaoke. Builds private test copies of it.
+# They have their own name ("Samia Taraweeh") and settings, so they run next to the main app.
+# Published as DRAFT releases (taraweeh-windows, taraweeh-linux): a draft is visible only to
+# people with write access to the repo (github.com/Syncstanza/samia/releases while signed in).
+on:
+  push:
+    branches: [taraweeh]
+    paths-ignore: ['**/*.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install and test
+        run: |
+          npm ci
+          npm test
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install, get the speech model, build the portable dev .exe
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm ci
+          npm test
+          npm run model
+          npm version "0.1.$GITHUB_RUN_NUMBER-taraweeh" --no-git-tag-version --allow-same-version
+          npx electron-builder --publish never --win portable -c.productName="Samia Taraweeh" -c.appId=com.syncstanza.samia.taraweeh '-c.portable.artifactName=Samia-Taraweeh-${version}.exe'
+      - name: Publish as the private "taraweeh-windows" draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.tag_name=="taraweeh-windows") | .id'); do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
+          git push origin --delete taraweeh-windows 2>/dev/null || true
+          gh release create taraweeh-windows dist/Samia-Taraweeh-*.exe --draft --title "Sami'a Taraweeh (Windows test build)" --notes "The TARAWEEH version, from the taraweeh branch: follows the imam, shows ruku' / sujood and the dua screen. Download and double-click, no install. Keys: S settings, arrows move by hand, D dua screen, B blank, Esc close, Alt+F4 quit." --target "$GITHUB_SHA"
+
+  linux:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install, get the speech model, build the dev AppImage
+        run: |
+          npm ci
+          npm run model
+          npm version "0.1.$GITHUB_RUN_NUMBER-taraweeh" --no-git-tag-version --allow-same-version
+          npx electron-builder --publish never --linux AppImage -c.productName="Samia Taraweeh" -c.appId=com.syncstanza.samia.taraweeh '-c.linux.artifactName=Samia-Taraweeh-${version}.${ext}'
+      - name: Publish as the private "taraweeh-linux" draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.tag_name=="taraweeh-linux") | .id'); do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
+          git push origin --delete taraweeh-linux 2>/dev/null || true
+          gh release create taraweeh-linux dist/Samia-Taraweeh-*.AppImage --draft --title "Sami'a Taraweeh (Linux test build)" --notes "The TARAWEEH version, from the taraweeh branch. chmod +x Samia-Taraweeh-*.AppImage, then run it (add --no-sandbox on newer Ubuntu/Mint if it won't start)." --target "$GITHUB_SHA"
