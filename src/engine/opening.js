@@ -9,22 +9,25 @@ const T = normalize(TAAWWUDH);
 const B = normalize(BASMALA);
 
 /** How much of `target` (0..1) is found somewhere inside `heard` (letters only), allowing small errors. */
-export function similarity(heard, target) {
+export function similarity(heard, target) { return locate(heard, target).score; }
+
+/** Where `target` best fits inside `heard`: score 0..1 and the index just after it. */
+export function locate(heard, target) {
   const m = target.length, n = heard.length;
-  if (!m || !n) return 0;
+  if (!m || !n) return { score: 0, end: 0 };
   let prev = new Int32Array(m + 1), cur = new Int32Array(m + 1);
   for (let i = 0; i <= m; i++) prev[i] = i;
-  let best = m; // the heard text may start anywhere and end anywhere
+  let best = m, bestEnd = 0; // the heard text may start anywhere and end anywhere
   for (let j = 1; j <= n; j++) {
     cur[0] = 0;
     for (let i = 1; i <= m; i++) {
       const sub = prev[i - 1] + (target.charCodeAt(i - 1) === heard.charCodeAt(j - 1) ? 0 : 1);
       cur[i] = Math.min(sub, prev[i] + 1, cur[i - 1] + 1);
     }
-    if (cur[m] < best) best = cur[m];
+    if (cur[m] < best) { best = cur[m]; bestEnd = j; }
     [prev, cur] = [cur, prev];
   }
-  return 1 - best / m;
+  return { score: 1 - best / m, end: bestEnd };
 }
 
 const NEED = 0.6;
