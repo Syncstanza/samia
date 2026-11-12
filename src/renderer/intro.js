@@ -32,7 +32,9 @@ function initIntro() {
   document.querySelectorAll('#modesMain .mode').forEach((m, i) => m.style.setProperty('--i', i));
 
   const q = new URLSearchParams(location.search);
-  const off = !on || q.has('demo') || q.has('nointro') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // (Windows' "animation effects" switch makes the browser report reduced motion, which hid the intro for
+  // everyone with it off. The intro is short, skippable and has its own switch in Settings, so it plays anyway.)
+  const off = !on || q.has('demo') || q.has('nointro');
   if (off) { root.remove(); return; }
 
   home.classList.add('intro-hold', 'cards-hold');
