@@ -73,3 +73,64 @@ jobs:
           for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.tag_name=="dev-linux") | .id'); do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
           git push origin --delete dev-linux 2>/dev/null || true
           gh release create dev-linux dist/Samia-DEV-*.AppImage --draft --title "Sami'a DEV (Linux test build)" --notes "A TEST build from the dev branch. chmod +x Samia-DEV-*.AppImage, then run it (add --no-sandbox on newer Ubuntu/Mint if it won't start)." --target "$GITHUB_SHA"
+
+  android:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/build-android
+        with:
+          version-name: 0.1.${{ github.run_number }}-dev
+          version-code: ${{ github.run_number }}
+          app-id: com.syncstanza.samia.dev
+          app-name: Sami'a DEV
+          out: Samia-DEV-0.1.${{ github.run_number }}.apk
+          keystore-b64: ${{ secrets.SAMIA_KEYSTORE_B64 }}
+          keystore-password: ${{ secrets.SAMIA_KEYSTORE_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist/*.apk
+          retention-days: 3
+
+  android-test:
+    # Starts the APK on an emulator and waits for the speech engine to report ready:
+    # proves the page, worker, speech model and microphone permission all work inside Android's WebView.
+    needs: android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: apk
+      - name: Enable KVM (fast emulator)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: bash tools/android-smoke.sh apk/*.apk com.syncstanza.samia.dev
+
+  android-publish:
+    needs: android-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: apk
+      - name: Publish as the private "dev-android" draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.tag_name=="dev-android") | .id'); do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
+          git push origin --delete dev-android 2>/dev/null || true
+          gh release create dev-android apk/*.apk --draft --title "Sami'a DEV (Android test build)" --notes "A TEST build from the dev branch. Open this page on your phone, tap the .apk, allow installs from the browser when asked, and install. It installs next to the real app (Sami'a DEV)." --target "$GITHUB_SHA"
