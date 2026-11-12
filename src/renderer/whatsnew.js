@@ -3,6 +3,15 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 6,
+    version: '1.4.0',
+    title: 'Sami\'a 1.4',
+    items: [
+      'Android: Sami\'a now runs on phones and tablets (Android 7 or newer), in landscape, with the same speech engine and screens. Download the .apk from the release page.',
+      'The intro now plays on every PC, including ones where Windows has animation effects turned off.',
+    ],
+  },
+  {
     id: 5,
     version: '1.3.1',
     title: 'Sami\'a 1.3.1',
