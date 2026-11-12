@@ -239,6 +239,7 @@
           <button class="ghost" id="btnAnn">Announcements</button>
         </div>
         <label class="row"><input type="checkbox" id="annShow" checked> Show announcements on the home screen</label>
+        <label class="row"><input type="checkbox" id="introShow" checked> Play the intro when the app opens</label>
       </div>
       <p class="keys">Keys: <kbd>H</kbd> home · <kbd>→</kbd> next ayah · <kbd>←</kbd> previous · <kbd>M</kbd> mute · <kbd>B</kbd> blank · <kbd>S</kbd> settings · <kbd>F</kbd> full screen</p>
       <p class="label-small">What it heard:</p>
@@ -254,6 +255,29 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" hidden></div>
+  <!-- Intro (plays once when the app opens; see intro.js) -->
+  <div id="intro" aria-hidden="true">
+    <div class="intro-bg"></div>
+    <div class="intro-col">
+      <div class="intro-logo">
+        <svg viewBox="0 0 120 120">
+          <rect x="4" y="4" width="112" height="112" rx="26" fill="#0f1c20"/>
+          <path class="intro-arch" pathLength="1" d="M30 88 V56 C30 36 46 24 60 14 C74 24 90 36 90 56 V88" fill="none" stroke="#14d6b8" stroke-width="5" stroke-linecap="round"/>
+          <g fill="#fbbf24">
+            <rect class="intro-bar" style="--d:.9s" x="40" y="62" width="6" height="26" rx="3"/>
+            <rect class="intro-bar" style="--d:1s" x="49" y="52" width="6" height="36" rx="3"/>
+            <rect class="intro-bar" style="--d:1.1s" x="58" y="44" width="6" height="44" rx="3"/>
+            <rect class="intro-bar" style="--d:1.2s" x="67" y="54" width="6" height="34" rx="3"/>
+            <rect class="intro-bar" style="--d:1.3s" x="76" y="64" width="6" height="24" rx="3"/>
+          </g>
+        </svg>
+        <img src="/docs/logo.png" alt="">
+      </div>
+      <span class="intro-title">Sami'a</span>
+      <span class="intro-tag">Recite. The Quran follows you, word by word.</span>
+      <span class="intro-bsm" dir="rtl" lang="ar">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</span>
+    </div>
+  </div>
   <script type="module" src="/src/renderer/app.js"></script>
 </body>
 </html>
