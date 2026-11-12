@@ -1,6 +1,12 @@
-**Sami'a 1.5.4**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.5.5**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.5.4
+## 🆕 New in 1.5.5
+
+- 🔀 **Smoother surah changes.** With or without Bismillah, the new surah is found faster and a wrong one no longer flashes up first.
+- 📱 **Slow phones keep up.** The glowing letters stay with you; Settings shows the listening speed.
+- 🕌 **Bismillah no longer confuses the search.**
+
+## Earlier: 1.5.4
 
 - 🔀 **Switching surahs is found much faster.** Finish one surah and start another (say al-Mulk, then al-Asr) and Sami'a now notices within the first ayah instead of waiting or missing it.
 

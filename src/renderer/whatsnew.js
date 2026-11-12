@@ -3,6 +3,16 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 12,
+    version: '1.5.5',
+    title: 'Sami\'a 1.5.5',
+    items: [
+      'Moving between surahs is smoother. Whether you say Bismillah or not, Sami\'a finds the new surah faster and no longer flashes a wrong one first.',
+      'Slow phones keep up: while following, it looks at less audio so the glowing letters stay with you. Settings shows the listening speed.',
+      'Bismillah at the start of a surah no longer confuses the search.',
+    ],
+  },
+  {
     id: 11,
     version: '1.5.4',
     title: 'Sami\'a 1.5.4',
