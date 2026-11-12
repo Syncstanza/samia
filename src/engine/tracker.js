@@ -48,7 +48,7 @@ const DEFAULTS = {
   coldMinQuery: 30,    // letters needed before a cold-start search may lock...
   coldShortQuery: 12,  // ...unless at least this many match this clearly
   coldShortAccept: 0.85,
-  coldHits: 2,         // agreeing checks in a row needed from cold
+  coldHits: 1,         // agreeing checks needed from cold (the look-alike check above already guards; 2 made short surahs like al-Kawthar wait until their last ayah)
   anchorMin: 4,        // letters of the next ayah's opening that are enough to move to it...
   anchorAccept: 0.8,   // ...when they match this clearly
   anchorNearEnd: 0.4,  // ...and the reciter is in the last 40% of the ayah (or 8 letters)
