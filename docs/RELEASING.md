@@ -1,6 +1,6 @@
 # How releases work
 
-- **`dev`** is where work happens. Every push to `dev` runs the tests and builds private test copies as **draft releases** (`dev-windows`, `dev-linux`), visible only to people with write access. Test builds have their own name ("Samia DEV") and their own settings folder ("Sami'a DEV"), and never offer updates.
+- **`dev`** is where work happens. Every push to `dev` runs the tests and builds private test copies as **draft releases** (`dev-windows`, `dev-linux`, `dev-android`), visible only to people with write access. Test builds have their own name ("Samia DEV") and their own settings folder ("Sami'a DEV"), and never offer updates.
 - **`main`** is what people get. Releases are made from `main` with the **Release** workflow.
 - **`taraweeh`** keeps the earlier taraweeh version, with its own private test builds.
 
@@ -10,7 +10,13 @@
 3. Merge `dev` into `main` and push.
 4. GitHub → Actions → **Release** → Run workflow → type the version (e.g. `1.2.0`).
 
-It tests, builds the Windows installer, the portable `.exe` and the Linux AppImage, attaches a `.sha256` checksum for each, and publishes the release as the latest. Copies already installed see **Update available** within 6 hours (or straight away with Settings → Check for updates).
+It tests, builds the Windows installer, the portable `.exe`, the Linux AppImage and the Android APK, attaches a `.sha256` checksum for each, and publishes the release as the latest. Copies already installed see **Update available** within 6 hours (or straight away with Settings → Check for updates).
+
+## Android
+- The APK is the same web app in an Android shell (`android-app/`, bundle built by `tools/android-www.mjs`). Every push to `dev` builds it, starts it on an emulator and waits for the speech engine to report ready (`tools/android-smoke.sh`); only then is the `dev-android` draft published. It installs next to the real app as "Sami'a DEV".
+- **Signing key.** Android only installs an update over an app signed with the same key, so releases are signed with the project key, kept in two repository secrets (Settings → Secrets and variables → Actions): `SAMIA_KEYSTORE_B64` (the key file, base64) and `SAMIA_KEYSTORE_PASSWORD`. The Release workflow refuses to build the APK without them. **Keep a backup of the key file: if it is lost, everyone has to uninstall and reinstall once.** Never commit it.
+- Version code is `major*10000 + minor*100 + patch` (1.2.3 → 10203), so it only goes up.
+- Android can't replace the app by itself: "Update available" opens the APK download in the browser, and the person taps it to install.
 
 ## How the update works
 - The app asks GitHub for the latest release and compares its version with its own.
