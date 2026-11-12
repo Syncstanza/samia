@@ -125,15 +125,15 @@ function fit() {
   // Largest Arabic size that fits the middle area (long ayat get smaller).
   const box = $('current');
   const vh = window.innerHeight / 100;
-  let lo = 2.6 * vh, hi = 8.5 * vh;
+  let lo = Math.max(2.6 * vh, 22), hi = Math.max(8.5 * vh, 44); // the floors only matter on a phone
   for (let k = 0; k < 9; k++) {
     const mid = (lo + hi) / 2;
     box.style.setProperty('--ar-size', `${mid}px`);
-    box.style.setProperty('--tr-size', `${Math.max(1.5 * vh, Math.min(3.2 * vh, mid * 0.4))}px`);
+    box.style.setProperty('--tr-size', `${Math.max(1.5 * vh, 13, Math.min(3.2 * vh, mid * 0.4))}px`);
     if (box.scrollHeight <= box.clientHeight + 1) lo = mid; else hi = mid;
   }
   box.style.setProperty('--ar-size', `${lo}px`);
-  box.style.setProperty('--tr-size', `${Math.max(1.5 * vh, Math.min(3.2 * vh, lo * 0.4))}px`);
+  box.style.setProperty('--tr-size', `${Math.max(1.5 * vh, 13, Math.min(3.2 * vh, lo * 0.4))}px`);
 }
 
 async function render(index, force = false) {
@@ -192,6 +192,7 @@ function status(kind, text) {
 worker.onmessage = ({ data: m }) => {
   if (m.type === 'ready') {
     asrReady = m.asr;
+    window.dispatchEvent(new CustomEvent('samia-ready', { detail: { asr: m.asr } })); // the Android build test waits for this
     if (params.has('demo')) { startFree(); return runDemo(params.get('demo')); }
     if (params.get('start')) { startFree(); setStart(params.get('start')); }
     listen(); // the mic meter works even without the model
@@ -216,6 +217,7 @@ worker.onmessage = ({ data: m }) => {
     showResult(m.result);
   } else if (m.type === 'error') {
     console.warn(m.message);
+    console.log('SAMIA_ERROR ' + m.message);
     status('error', m.message.length > 40 ? 'Problem: see settings' : m.message);
     $('heard').textContent = m.message;
   }
@@ -684,7 +686,7 @@ $('btnNext').onclick = post('next');
 $('btnMute').onclick = () => setMuted(!muted);
 $('btnBlank').onclick = () => $('blank').classList.toggle('on');
 $('btnSettings').onclick = openSettings;
-// Desktop app: the window goes full screen from the main process. Browser: the page does.
+// Desktop app: the window goes full screen from the main process. Browser / Android: the page does.
 function toggleFull() {
   if (window.api && window.api.toggleFullscreen) return window.api.toggleFullscreen();
   return document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();

@@ -1,5 +1,5 @@
 name: Release
-# Builds the downloads from main and publishes them as a GitHub release: Windows installer,
+# Builds the downloads from main and publishes them as a GitHub release: Windows installer, Android APK,
 # Windows portable .exe, Linux AppImage. Start it from Actions -> Release -> Run workflow
 # (version = package.json's version, e.g. 1.0.0), or by pushing a tag like v1.0.0.
 # The release stays a draft until every download is attached, then it is published.
@@ -88,8 +88,41 @@ jobs:
           for f in dist/Samia-*.AppImage; do sha256sum "$f" | cut -d' ' -f1 > "$f.sha256"; done
           gh release upload "$TAG" dist/Samia-*.AppImage dist/Samia-*.AppImage.sha256 --clobber
 
+  android:
+    needs: draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The signing key must exist (an APK signed with a throw-away key could never be updated)
+        env:
+          KS: ${{ secrets.SAMIA_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KS" ]; then echo "::error::Secrets SAMIA_KEYSTORE_B64 and SAMIA_KEYSTORE_PASSWORD are missing (see docs/RELEASING.md)."; exit 1; fi
+      - name: Version code (1.2.3 -> 10203)
+        id: v
+        run: |
+          v="${TAG#v}"; IFS=. read -r a b c <<< "$v"
+          echo "code=$((a*10000 + b*100 + c))" >> "$GITHUB_OUTPUT"
+          echo "name=$v" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/build-android
+        with:
+          version-name: ${{ steps.v.outputs.name }}
+          version-code: ${{ steps.v.outputs.code }}
+          out: Samia-${{ steps.v.outputs.name }}.apk
+          keystore-b64: ${{ secrets.SAMIA_KEYSTORE_B64 }}
+          keystore-password: ${{ secrets.SAMIA_KEYSTORE_PASSWORD }}
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f="dist/Samia-${TAG#v}.apk"
+          sha256sum "$f" | cut -d' ' -f1 > "$f.sha256"
+          gh release upload "$TAG" "$f" "$f.sha256" --clobber
+
   publish:
-    needs: [windows, linux]
+    # The desktop downloads publish even if the Android build has a problem; the APK is added when it works.
+    needs: [windows, linux, android]
+    if: ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Publish the release

@@ -1,0 +1,19 @@
+{
+  "appId": "com.syncstanza.samia",
+  "appName": "Sami'a",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "backgroundColor": "#0b1215",
+  "loggingBehavior": "production",
+  "plugins": {
+    "SystemBars": {
+      "hidden": true,
+      "style": "DARK"
+    }
+  }
+}
