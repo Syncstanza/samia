@@ -126,3 +126,18 @@ test('tracker: a short surah (al-Kawthar) is found from cold during its first ay
   assert.equal(res.ayah.surah, 108);
   assert.ok(res.ayah.ayah <= 2);
 });
+
+test('tracker: moving from one surah to a short different one (al-Mulk, then al-Asr) is found quickly', () => {
+  const tr = new Tracker(ix);
+  const text = (s, n) => { let t = ''; for (let i = ix.indexOf(s, 1), k = 0; k < n; k++, i++) t += ix.letters.slice(ix.ayahStart[i], ix.ayahStart[i + 1]); return t; };
+  const mulk = text(67, 5);
+  for (let p = 0; p < mulk.length; p += 8) tr.push(mulk.slice(p, p + 8));
+  assert.equal(tr.shown >= 0 && tr.ix.ref(tr.shown).surah, 67);
+  const asr = text(103, 3);
+  let at = -1;
+  for (let p = 0; p < asr.length; p += 8) {
+    const r = tr.push(asr.slice(p, p + 8));
+    if (at < 0 && r.ayah && r.ayah.surah === 103) at = p + 8;
+  }
+  assert.ok(at > 0 && at <= asr.length, `found at ${at} of ${asr.length}`);
+});
