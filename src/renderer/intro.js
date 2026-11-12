@@ -2,7 +2,27 @@
 // then the logo, name and tagline glide to where they sit on the home screen while the
 // three mode cards rise in. Any key, click or tap skips it. Settings can turn it off.
 // It never delays the app: the speech engine loads underneath while it plays.
-export function initIntro({ $, store }) {
+//
+// This file runs on its own, ahead of the app's own scripts, so the intro starts at once even while
+// the speech engine and the rest of the app are still loading. (If it ever fails to start, a CSS
+// timer in styles.css removes the intro after a few seconds, so it can never block the app.)
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) {
+    try {
+      if (window.api && window.api.settings) { const s = window.api.settings(); return k in s ? s[k] : d; }
+      const v = localStorage.getItem('samia.' + k); return v === null ? d : JSON.parse(v);
+    } catch { return d; }
+  },
+  set(k, v) {
+    try {
+      if (window.api && window.api.setSetting) window.api.setSetting(k, v);
+      else localStorage.setItem('samia.' + k, JSON.stringify(v));
+    } catch { /* storage off */ }
+  },
+};
+
+function initIntro() {
   const root = $('intro');
   const home = $('home');
   const box = $('introShow');
@@ -68,3 +88,5 @@ export function initIntro({ $, store }) {
   later(() => logo.classList.add('png'), 2300);
   later(handoff, 3300);
 }
+
+initIntro();
