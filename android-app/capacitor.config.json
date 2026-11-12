@@ -8,5 +8,6 @@
   "server": {
     "androidScheme": "https"
   },
-  "backgroundColor": "#0b1215"
+  "backgroundColor": "#0b1215",
+  "loggingBehavior": "production"
 }
