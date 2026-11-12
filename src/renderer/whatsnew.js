@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 11,
+    version: '1.5.4',
+    title: 'Sami\'a 1.5.4',
+    items: [
+      'Switching surahs is found much faster. If you finish one surah and start a different one (for example al-Mulk, then al-Asr), Sami\'a now notices within the first ayah instead of waiting or missing it.',
+    ],
+  },
+  {
     id: 10,
     version: '1.5.3',
     title: 'Sami\'a 1.5.3',
