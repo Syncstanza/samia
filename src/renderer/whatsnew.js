@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 10,
+    version: '1.5.3',
+    title: 'Sami\'a 1.5.3',
+    items: [
+      'Faster to find where you are. Short surahs like al-Kawthar are now found during the first ayah, instead of not until the last one.',
+    ],
+  },
+  {
     id: 9,
     version: '1.5.2',
     title: 'Sami\'a 1.5.2',
