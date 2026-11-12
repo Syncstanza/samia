@@ -199,6 +199,7 @@ worker.onmessage = ({ data: m }) => {
     listen(); // the mic meter works even without the model
     if (!asrReady) status('manual', 'No speech model');
   } else if (m.type === 'update') {
+    if (m.ms) { speedAvg = speedAvg ? 0.8 * speedAvg + 0.2 * m.ms : m.ms; $('speed').textContent = `Listening speed: ${Math.round(speedAvg)} ms per check (under about 450 is smooth)`; }
     recorder.addUpdate(m);
     if ((screenName === 'free' || (screenName === 'turn' && session?.free)) && shown < 0) $('idleHeard').textContent = m.heard ? m.heard.split(' ').slice(-6).join(' ') : $('idleHeard').textContent;
     if (m.heard && gatePending && screenName === 'turn') {
@@ -350,6 +351,7 @@ function showReady() {
 let turnStarted = 0, clockTimer = 0, lastSpeechAt = 0, reachedEnd = false, spokeInTurn = false;
 // Every turn starts with a'udhu billah / Bismillah: hearing it proves the mic works. Until then the turn hasn't begun.
 let gatePending = false, gateHeard = '';
+let speedAvg = 0;
 function openGate(on) {
   gatePending = on;
   gateHeard = '';

@@ -15,6 +15,8 @@ const DEFAULTS = {
   historyAge: 8,      // seconds earlier phrases are kept while searching
   window: 3.5,        // seconds of audio the model looks at
   hop: 0.4,           // how often it looks
+  minWindow: 2.5,     // slow devices: while following, the model may look at less audio than this window...
+  targetMs: 450,      // ...so that one look takes about this long (the highlight then keeps up)
   minLevel: 0.0008,   // absolute floor: quieter than this is silence
   minVoiced: 0.12,    // share of a hop that must be voice to count as speech
   targetLevel: 0.08,  // the VOICE (not the room) is brought up to about this level
@@ -30,6 +32,7 @@ export class Listener {
     this.utterances = new Utterances(SR);
     this.ring = new Float32Array(0);
     this.sinceHop = 0;
+    this.cost = 0;      // smoothed milliseconds the model needs per second of audio
     this.busy = false;
     this.lastHeard = '';
     // While still finding the place: what was heard in earlier phrases. Short
@@ -115,12 +118,22 @@ export class Listener {
         out = this.tracker.observe('');
       } else {
         const started = performance.now();
-        this.lastHeard = await this.asr.transcribe(gain(this.ring, voice.level, this.o));
+        // While following, a slow device looks at less audio, so each look is quicker and the highlight stays close.
+        // (Finding the place keeps the whole window: it needs the letters.)
+        let wave = this.ring;
+        if (this.tracker.state === 'LOCKED' && this.cost > 0) {
+          const secs = Math.max(this.o.minWindow, Math.min(this.o.window, this.o.targetMs / this.cost));
+          const n = Math.round(secs * SR);
+          if (n < wave.length) wave = wave.subarray(wave.length - n);
+        }
+        this.lastHeard = await this.asr.transcribe(gain(wave, voice.level, this.o));
         this.phrase = this.lastHeard;
         const before = this.tracker.state !== 'LOCKED' ? this._recent() : '';
-        out = this.tracker.observe(before ? before + ' ' + this.lastHeard : this.lastHeard, Math.min(1, hopLen / this.ring.length));
+        out = this.tracker.observe(before ? before + ' ' + this.lastHeard : this.lastHeard, Math.min(1, hopLen / wave.length));
         if (this.tracker.state === 'LOCKED') this.history = [];
         out.ms = Math.round(performance.now() - started);
+        const perSec = out.ms / (wave.length / SR);
+        this.cost = this.cost ? 0.7 * this.cost + 0.3 * perSec : perSec;
       }
       if (out.clearAudio) this.clearAudio();
       return { ...out, heard: this.lastHeard, level };
