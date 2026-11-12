@@ -40,6 +40,10 @@ const DEFAULTS = {
   fatihaMinSpan: 14,   // ...and at least this much of al-Fatiha must match ("لك يوم" alone isn't enough)
   fatihaTail: 6,       // letters from the end of al-Fatiha that count as "finished"
   failsToSearch: 4,    // consecutive bad pushes before searching
+  probeAfter: 2,       // bad pushes before a quick strict check for a different surah ("did he switch?")...
+  probeMinQuery: 14,   // ...needs at least this many letters,
+  probeAccept: 0.82,   // ...a clear match somewhere else in the Quran,
+  probeNeed: 2,        // ...seen by this many checks in a row (the look-alike check applies too).
   silenceClear: 3,     // empty pushes before forgetting the buffer
   back: 220,           // letters allowed backwards (repeats)
   fwd: 450,            // letters allowed forwards
@@ -84,6 +88,9 @@ export class Tracker {
     this.offset = 0;
     this.bounds = null;   // {lo, hi} letter range a turn is limited to
     this.surahMisses = 0;
+    this.probeHits = 0;
+    this.probeEnd = -1;
+    this.failLetters = 0; // letters heard since the match last worked
   }
 
   /**
@@ -273,7 +280,12 @@ export class Tracker {
       }
       return;
     }
-    if (++this.fails >= this.o.failsToSearch) {
+    const fails = ++this.fails;
+    this.failLetters += this.lastAdd;
+    // Only what has been heard since the match failed (the rest is the surah he just left).
+    const fresh = q.slice(-Math.min(q.length, this.failLetters));
+    if (fails >= this.o.probeAfter && !inFatiha && fresh.length >= this.o.probeMinQuery && this._search(true, fresh)) return;
+    if (fails >= this.o.failsToSearch) {
       this.fails = 0;
       // Lost the place: look again in the same surah first (and the start of
       // the next one). The whole Quran only if that keeps failing.
@@ -307,6 +319,7 @@ export class Tracker {
     const { ayahOf, fatihaEnd } = this.ix;
     this.pos = r.end;
     this.fails = 0;
+    this.failLetters = 0;
     this.surahMisses = 0;
     this.confidence = r.norm;
     this.state = 'LOCKED';
@@ -346,9 +359,9 @@ export class Tracker {
   }
 
   // ------------------------------------------------------------- SEARCHING
-  _search() {
+  _search(probe = false, probeQ = '') {
     const { letters, grams, fatihaEnd } = this.ix;
-    const q = this.buf;
+    const q = probe ? probeQ : this.buf;
     const BUCKET = 32;
 
     // Vote: each 4-gram of the query points at where the query could start.
@@ -383,6 +396,7 @@ export class Tracker {
     for (const c of cands) if (!uniq.some((u) => Math.abs(u.end - c.end) < 20)) uniq.push(c);
 
     const best = uniq[0];
+    if (probe) return this._probe(best, uniq[1]);
     if (!best || best.norm < this.o.searchAccept) { this.pending = null; return; }
     const second = uniq[1];
     if (second && best.rank - second.rank < this.o.ambiguityGap) {
@@ -412,6 +426,27 @@ export class Tracker {
       this.pending = null;
       this._accept(best);
     }
+  }
+
+  /**
+   * While following: did the reciter move to a different surah (he finished one
+   * and started another)? A strict, quick check so it doesn't wait for the
+   * slow "lost" path: a clear match outside the current surah, no equally good
+   * look-alike, and the same place on consecutive checks. Returns true if it moved.
+   */
+  _probe(best, second) {
+    const miss = () => { this.probeHits = 0; return false; };
+    if (!best || best.norm < this.o.probeAccept) return miss();
+    if (second && best.rank - second.rank < this.o.ambiguityGap) return miss();
+    const cur = this.ix.surahRange(this.ix.ayahOf[Math.min(Math.max(this.pos - 1, 0), this.ix.letters.length - 1)]);
+    if (best.end >= cur.lo && best.end <= cur.hi) return miss(); // still in this surah: the normal path handles it
+    this.probeHits = this.probeEnd >= 0 && Math.abs(best.end - this.probeEnd) <= 80 ? this.probeHits + 1 : 1;
+    this.probeEnd = best.end;
+    if (this.probeHits < this.o.probeNeed) return false;
+    this.probeHits = 0;
+    this.pending = null;
+    this._accept(best);
+    return true;
   }
 
   _result(changed) {
