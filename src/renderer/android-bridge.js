@@ -45,8 +45,9 @@
     },
     openReleases: () => {
       const url = apkUrl || `https://github.com/${REPO}/releases/latest`;
-      const browser = plugin('Browser');
-      if (browser) browser.open({ url }); else window.open(url, '_blank');
+      // Hand the link to the phone's own browser (a normal download with the usual "Open" notification).
+      // The in-app tab (Browser plugin) finishes the download but then sits on "Downloading..." with no way to install.
+      window.location.href = url;
     },
     announcements: async () => {
       try {
