@@ -2,11 +2,10 @@
 
 ## 🆕 New in 1.2
 
-- 📱 **Android.** Sami'a now runs on Android phones and tablets (Android 7 or newer): same speech engine, same screens, landscape. Open this page on the phone, tap `Samia-1.2.0.apk`, and allow installs from your browser when asked. Updates open the new download for you to tap.
 - 🖥 **Full-screen button works.** It opens in a window; the button (or **F**) toggles full screen. For a dedicated display PC, `npm run start:kiosk` starts full screen.
 - 🧪 Test builds keep their own settings.
 
-> On 1.1 or later? The app offers the update by itself. Android: install the .apk once; later updates are a tap from the in-app notice.
+> On 1.1 or later? The app offers the update by itself.
 
 ## Earlier: 1.1
 

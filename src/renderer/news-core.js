@@ -42,13 +42,12 @@ export function cleanAnnouncements(json, now = Date.now()) {
   return out.slice(0, 5);
 }
 
-/** The download for this kind of copy: 'portable' | 'installer' | 'appimage' | 'apk'. */
+/** The download for this kind of copy: 'portable' | 'installer' | 'appimage'. */
 export function pickAsset(kind, assets) {
   const want = {
     portable: /^Samia-\d+\.\d+\.\d+\.exe$/i,
     installer: /^Samia-Setup-\d+\.\d+\.\d+\.exe$/i,
     appimage: /^Samia-\d+\.\d+\.\d+\.AppImage$/i,
-    apk: /^Samia-\d+\.\d+\.\d+\.apk$/i,
   }[kind];
   if (!want) return null;
   const bin = (assets || []).find((a) => want.test(String(a.name || '')));

@@ -46,8 +46,6 @@ test('update downloads: the right file for each kind of copy, with its checksum'
   assert.equal(pickAsset('installer', assets).bin.name, 'Samia-Setup-1.1.0.exe');
   assert.equal(pickAsset('appimage', assets).bin.name, 'Samia-1.1.0.AppImage');
   assert.equal(pickAsset('appimage', assets.filter((a) => !a.name.endsWith('.sha256'))).sum, null);
-  assert.equal(pickAsset('apk', [...assets, { name: 'Samia-1.1.0.apk' }]).bin.name, 'Samia-1.1.0.apk');
-  assert.equal(pickAsset('apk', assets), null);
   assert.equal(pickAsset('other', assets), null);
   assert.ok(RELEASE_URL.test(base + 'Samia-1.1.0.exe'));
   assert.ok(!RELEASE_URL.test('https://example.com/Syncstanza/samia/releases/x'));
