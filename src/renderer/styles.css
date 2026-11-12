@@ -271,6 +271,18 @@ body.screen-home { cursor: default; }
 .turn-clock { font-variant-numeric: tabular-nums; font-size: max(2.2vh, 12px); color: var(--muted); }
 .turn-bar button { padding: 10px 22px; }
 body.screen-turn { cursor: default; }
+.gate {
+  position: absolute; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(88vw, 760px); box-sizing: border-box; padding: 3.5vh 4vw; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 2vh;
+  border-radius: 22px; background: #0b1215; border: 1px solid rgba(34, 227, 210, .25);
+  box-shadow: 0 0 80px rgba(34, 227, 210, .12);
+}
+.gate-ar { margin: 0; font-family: 'Amiri Quran', serif; font-size: max(4.6vh, 24px); line-height: 1.9; color: #ffe3a1; }
+.gate-en { margin: 0; color: var(--muted); font-size: max(2.2vh, 13px); }
+.gate-en b { color: var(--text); font-weight: 600; }
+.gate-skip { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: max(1.9vh, 12px); padding: 6px; }
+body.screen-turn:not(.gate-on) .gate { display: none; }
 
 /* hifz test: words stay hidden until recited */
 body.hide-text .ayah.current .ar .w:not(.done):not(.now) { color: transparent; text-shadow: none; border-bottom: 2px dotted rgba(143,163,168,.35); }
