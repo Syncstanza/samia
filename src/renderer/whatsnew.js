@@ -3,6 +3,16 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 3,
+    version: '1.2.0',
+    title: 'Sami\'a 1.2',
+    items: [
+      'Android: Sami\'a now runs on phones and tablets (Android 7 or newer), with the same speech engine and screens. Download the .apk from the release page.',
+      'The full-screen button works: Sami\'a opens in a window, and the button (or F) switches to full screen and back.',
+      'Test builds keep their own settings, so trying one never changes your real setup.',
+    ],
+  },
+  {
     id: 2,
     version: '1.1.0',
     title: 'Sami\'a 1.1',
