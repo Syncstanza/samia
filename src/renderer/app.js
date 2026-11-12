@@ -656,7 +656,7 @@ document.addEventListener('keydown', (e) => {
     case 's': openSettings(); break;
     case 'b': case 'B': case '.': $('blank').classList.toggle('on'); break;
     case 'Escape': closeSettings(); $('blank').classList.remove('on'); if (screenName === 'home' && !$('modesCompetition').hidden) showModes('main'); break;
-    case 'f': case 'F': document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); break;
+    case 'f': case 'F': toggleFull(); break;
   }
 });
 
@@ -686,7 +686,12 @@ $('btnNext').onclick = post('next');
 $('btnMute').onclick = () => setMuted(!muted);
 $('btnBlank').onclick = () => $('blank').classList.toggle('on');
 $('btnSettings').onclick = openSettings;
-$('btnFull').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
+// Desktop app: the window goes full screen from the main process. Browser / Android: the page does.
+function toggleFull() {
+  if (window.api && window.api.toggleFullscreen) return window.api.toggleFullscreen();
+  return document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+}
+$('btnFull').onclick = toggleFull;
 $('blank').addEventListener('click', () => $('blank').classList.remove('on'));
 try { await navigator.wakeLock?.request('screen'); } catch { /* not supported */ }
 screen('home');

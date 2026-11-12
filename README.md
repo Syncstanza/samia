@@ -135,10 +135,10 @@ Needs [Node.js 22+](https://nodejs.org). In the project folder:
 ```bash
 npm install          # app + Electron
 npm run model        # downloads the Quran speech model (~19 MB)
-npm start            # opens Sami'a full screen and starts listening
+npm start            # opens Sami'a in a window and starts listening
 ```
 
-`npm run start:window` opens it in a normal window.
+It opens in a normal window; the full-screen button (or <kbd>F</kbd>) toggles full screen. `npm run start:kiosk` starts straight in full screen.
 Move the mouse to show the controls (they hide again after 3 seconds). Keys: <kbd>Space</kbd> start a turn, <kbd>Enter</kbd> done, <kbd>H</kbd> home, <kbd>S</kbd> settings (audio input), <kbd>→</kbd>/<kbd>←</kbd> move by hand, <kbd>M</kbd> mute, <kbd>B</kbd> blank, <kbd>F</kbd> full screen.
 
 ### Android

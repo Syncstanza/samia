@@ -22,7 +22,7 @@
   "type": "module",
   "scripts": {
     "start": "electron .",
-    "start:window": "electron . --window",
+    "start:kiosk": "electron . --kiosk",
     "serve": "node src/server.js 4173",
     "model": "node tools/download-model.mjs",
     "build:data": "node tools/build-quran-data.mjs",
