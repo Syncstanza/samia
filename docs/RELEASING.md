@@ -1,6 +1,6 @@
 # How releases work
 
-- **`dev`** is where work happens. Every push to `dev` runs the tests and builds private test copies as **draft releases** (`dev-windows`, `dev-linux`), visible only to people with write access. Test builds have their own name ("Samia DEV") and settings, and never offer updates.
+- **`dev`** is where work happens. Every push to `dev` runs the tests and builds private test copies as **draft releases** (`dev-windows`, `dev-linux`), visible only to people with write access. Test builds have their own name ("Samia DEV") and their own settings folder ("Sami'a DEV"), and never offer updates.
 - **`main`** is what people get. Releases are made from `main` with the **Release** workflow.
 - **`taraweeh`** keeps the earlier taraweeh version, with its own private test builds.
 

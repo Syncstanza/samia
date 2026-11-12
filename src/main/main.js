@@ -17,6 +17,13 @@ const ANNOUNCEMENTS = `https://raw.githubusercontent.com/${REPO}/main/announceme
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
+// Test builds (version like "0.1.20-dev") keep their own settings, so trying
+// one never changes the real app's settings on the same computer.
+{
+  const tag = /-([a-z]+)$/i.exec(app.getVersion());
+  if (tag) app.setPath('userData', join(app.getPath('appData'), `Sami'a ${tag[1].toUpperCase()}`));
+}
+
 /* ---------- settings: a small JSON file in the app's folder ----------
    The page's own storage belongs to http://127.0.0.1:<port>, and the port is
    new every start, so it can't keep anything between starts. */
