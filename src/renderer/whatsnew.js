@@ -3,6 +3,15 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 8,
+    version: '1.5.1',
+    title: 'Sami\'a 1.5.1',
+    items: [
+      'The intro now says "by Syncstanza" under the name.',
+      'Android: updating opens the download in your phone\'s browser, so you get the normal Open button to install it (the in-app page used to get stuck on "Downloading").',
+    ],
+  },
+  {
     id: 7,
     version: '1.5.0',
     title: 'Sami\'a 1.5',
