@@ -1,6 +1,10 @@
-**Sami'a 1.2**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.3**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.2
+## 🆕 New in 1.3
+
+- ✨ **A new intro.** The logo draws itself, the name appears, then everything glides into the home screen as the three modes rise in. Any key or click skips it, and Settings → *Play the intro when the app opens* turns it off.
+
+## Earlier: 1.2
 
 - 🖥 **Full-screen button works.** It opens in a window; the button (or **F**) toggles full screen. For a dedicated display PC, `npm run start:kiosk` starts full screen.
 - 🧪 Test builds keep their own settings.

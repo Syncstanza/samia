@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sami'a</title>
+  <link rel="icon" href="/docs/logo.png">
+  <link rel="stylesheet" href="/vendor/fonts/amiri-quran.css">
+  <link rel="stylesheet" href="/src/renderer/styles.css">
+</head>
+<body class="screen-home">
+  <div id="stage">
+    <svg class="arch" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="archGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#22e3d2"/>
+          <stop offset="0.55" stop-color="#2be38f"/>
+          <stop offset="1" stop-color="#a6f35a"/>
+        </linearGradient>
+      </defs>
+      <path d="M70 900 V360 C70 210 560 170 800 22 C1040 170 1530 210 1530 360 V900"
+            fill="none" stroke="url(#archGrad)" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+
+    <header>
+      <div class="surah">
+        <span class="surah-ar" id="surahAr"></span>
+        <span class="surah-en" id="surahEn"></span>
+      </div>
+      <div class="turn-info" id="turnInfo"></div>
+      <div class="meta">
+        <span class="juz" id="juz"></span>
+        <span class="pill" id="status"><i></i><b>Starting</b></span>
+      </div>
+    </header>
+
+    <!-- The recitation: current ayah large, the ones before and after dimmed -->
+    <main id="flow">
+      <section class="ayah prev" id="prev"></section>
+      <section class="ayah current" id="current"></section>
+      <section class="ayah next" id="next"></section>
+    </main>
+
+    <div class="idle" id="idle">
+      <img src="/docs/logo.png" alt="">
+      <h1>Sami'a</h1>
+      <p id="idleText">Start reciting…</p>
+      <p class="idle-heard" id="idleHeard" dir="rtl"></p>
+    </div>
+
+    <!-- Home: choose a mode -->
+    <section class="home" id="home">
+      <img class="home-logo" src="/docs/logo.png" alt="">
+      <h1>Sami'a</h1>
+      <p class="tagline">Recite. The Quran follows you, word by word.</p>
+      <div class="modes" id="modesMain">
+        <button class="mode" data-mode="free">
+          <span class="mode-icon">🎙</span>
+          <b>Free recite</b>
+          <span>Recite anything. Sami'a finds it and follows along.</span>
+        </button>
+        <button class="mode" data-mode="competition">
+          <span class="mode-icon">🏆</span>
+          <b>Competition</b>
+          <span>Reciters take turns on a passage. Judged by people, or scored by Sami'a.</span>
+        </button>
+        <button class="mode" data-mode="hifz">
+          <span class="mode-icon">📖</span>
+          <b>Hifz test</b>
+          <span>The text stays hidden and appears as you recite from memory.</span>
+        </button>
+      </div>
+      <div class="modes" id="modesCompetition" hidden>
+        <button class="mode" data-mode="judged">
+          <span class="mode-icon">🕌</span>
+          <b>School / Masjid</b>
+          <span>Judges listen and score. The screen just shows the audience each reciter's ayat, word by word. No scores on screen.</span>
+        </button>
+        <button class="mode" data-mode="friends">
+          <span class="mode-icon">🏆</span>
+          <b>Friends</b>
+          <span>Sami'a scores every reciter and ranks everyone on a scoreboard.</span>
+        </button>
+      </div>
+      <button class="ghost" id="modesBack" hidden>Back</button>
+      <p class="home-keys">Settings: <kbd>S</kbd> · Full screen: <kbd>F</kbd></p>
+      <!-- Home screen only: never shown over a recitation -->
+      <button class="update-btn" id="btnUpdate" hidden>Update available</button>
+      <div class="ann-bar" id="annBar" role="status" hidden><span id="annText"></span><button class="ghost small-btn" id="annClose">Dismiss</button></div>
+    </section>
+
+    <!-- Competition / hifz setup -->
+    <section class="panel setup" id="setup" hidden>
+      <h2 id="setupTitle">Competition</h2>
+      <div class="field">
+        <span class="label">Passage</span>
+        <div class="row choice" id="pickWhere" hidden>
+          <button class="ghost small-btn on" id="wherePassage">Choose a passage</button>
+          <button class="ghost small-btn" id="whereAnywhere">Recite anywhere</button>
+        </div>
+        <p class="hint" id="anywhereInfo" hidden>Start from any ayah you like. Sami'a finds where you are, shows each word only once you've said it, and scores what you recited, from where you started to where you stopped.</p>
+        <div class="row" id="pickSurahRow">
+          <select id="pickSurah"></select>
+        </div>
+        <div class="row" id="pickRangeRow">
+          <span class="small">From ayah</span> <input id="pickFrom" type="number" min="1" value="1">
+          <span class="small">to</span> <input id="pickTo" type="number" min="1" value="1">
+          <button class="ghost small-btn" id="pickWhole">Whole surah</button>
+        </div>
+        <p class="hint" id="pickInfo"></p>
+      </div>
+      <div class="field">
+        <span class="label">Reciters</span>
+        <div id="reciters"></div>
+        <button class="ghost small-btn" id="addReciter">+ Add reciter</button>
+      </div>
+      <label class="row"><input type="checkbox" id="hideText"> Hide the text until it's recited (hifz test)</label>
+      <div class="buttons">
+        <button id="setupStart">Start</button>
+        <button class="ghost" id="setupCancel">Back</button>
+      </div>
+    </section>
+
+    <!-- Before each turn -->
+    <section class="card turn-ready" id="ready" hidden>
+      <p class="small-caps" id="readyCount"></p>
+      <h2 id="readyName"></h2>
+      <p id="readyPassage"></p>
+      <button id="readyGo">Start reciting</button>
+      <p class="hint">Or press <kbd>Space</kbd>. When finished, press <kbd>Enter</kbd> or <b>Done</b> <span id="readyEnds">(it also ends by itself after the last word)</span>.</p>
+    </section>
+
+    <!-- During a turn -->
+    <div class="turn-bar" id="turnBar" hidden>
+      <span class="turn-clock" id="turnClock">0:00</span>
+      <button id="turnDone">Done</button>
+    </div>
+
+    <!-- Checking -->
+    <section class="card checking" id="checking" hidden>
+      <h2>Checking the recitation…</h2>
+      <div class="meter big"><i id="checkBar"></i></div>
+    </section>
+
+    <!-- Result of one turn -->
+    <section class="result" id="result" hidden>
+      <div class="result-head">
+        <div>
+          <p class="small-caps" id="resultWho"></p>
+          <p class="result-score"><span id="resultScore"></span><small>%</small></p>
+        </div>
+        <ul class="legend">
+          <li><i class="m-correct"></i> Correct <b id="cntCorrect"></b></li>
+          <li><i class="m-mistake"></i> Check <b id="cntMistake"></b></li>
+          <li><i class="m-skipped"></i> Skipped <b id="cntSkipped"></b></li>
+          <li><i class="m-unread"></i> Not reached <b id="cntUnread"></b></li>
+        </ul>
+      </div>
+      <div class="review" id="review"></div>
+      <div class="buttons center">
+        <button id="resultNext">Next reciter</button>
+        <button class="ghost" id="resultRetry">Try again</button>
+      </div>
+    </section>
+
+    <!-- Judged competition: all reciters done -->
+    <section class="card turn-ready" id="judgedDone" hidden>
+      <p class="small-caps" id="judgedCount"></p>
+      <h2>All reciters are done</h2>
+      <p>Over to the judges. جزاكم الله خيرا</p>
+      <div class="buttons center">
+        <button id="judgedAgain">New round</button>
+        <button class="ghost" id="judgedHome">Home</button>
+      </div>
+    </section>
+
+    <!-- Scoreboard -->
+    <section class="result scoreboard" id="scoreboard" hidden>
+      <h2>Scoreboard</h2>
+      <p class="small-caps" id="boardPassage"></p>
+      <ol id="board"></ol>
+      <div class="buttons center">
+        <button id="boardAgain">New round</button>
+        <button class="ghost" id="boardHome">Home</button>
+      </div>
+    </section>
+
+    <footer>
+      <span class="mic" id="mic" title="Press S to change the microphone">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12z"/></svg>
+        <span class="mic-name" id="micName">No microphone yet</span>
+        <span class="meter"><i id="micLevel"></i></span>
+        <span class="mic-hint" id="micHint"></span>
+      </span>
+      <span>Sami'a · Syncstanza</span>
+      <span>Quran text: Tanzil.net · Translation: Saheeh International</span>
+    </footer>
+
+    <nav class="controls" id="controls" aria-label="Controls">
+      <button id="btnHome" title="Home (H)"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></button>
+      <span class="sep"></span>
+      <button id="btnPrev" title="Previous ayah (←)"><svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg></button>
+      <button id="btnNext" title="Next ayah (→)"><svg viewBox="0 0 24 24"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg></button>
+      <span class="sep"></span>
+      <button id="btnMute" class="mute" title="Mute (M)" aria-pressed="false">
+        <svg class="on" viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12z"/></svg>
+        <svg class="off" viewBox="0 0 24 24"><path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5a3 3 0 0 0-6 0v.18zM4.27 3 3 4.27l6.01 6.01V11a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52A5.3 5.3 0 0 1 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73z"/></svg>
+        <span>Mute</span>
+      </button>
+      <button id="btnBlank" title="Blank screen (B)"><span>Blank</span></button>
+      <span class="sep"></span>
+      <button id="btnSettings" title="Settings (S)"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.9a7 7 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7 7 0 0 0 1.7 1L11 21h4l.4-2.9a7 7 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
+      <button id="btnFull" title="Full screen (F)"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg></button>
+    </nav>
+
+    <div class="overlay black" id="blank"></div>
+
+    <div class="panel" id="settings" hidden>
+      <h2>Settings</h2>
+      <label>Audio input
+        <select id="input"></select>
+      </label>
+      <div class="meter big"><i id="micLevel2"></i></div>
+      <p class="hint">Speak or recite: the bar should move. If it doesn't, pick another input.</p>
+      <label class="row"><input type="checkbox" id="cleanup"> Room microphone (turn on noise reduction)</label>
+      <label class="row"><input type="checkbox" id="showTr" checked> Show translation</label>
+      <div class="buttons">
+        <button id="apply">Done</button>
+      </div>
+      <div class="buttons">
+        <button id="saveTest" class="ghost">Save test recording (last 2 min)</button>
+      </div>
+      <p class="hint">Saves the last 2 minutes from the microphone and what Sami'a heard, to your Downloads folder. Nothing is saved unless you press this.</p>
+      <div class="about">
+        <p class="label-small" id="aboutVersion"></p>
+        <div class="buttons">
+          <button class="ghost" id="btnCheckUpdate">Check for updates</button>
+          <button class="ghost" id="btnWhatsNew">What's new</button>
+          <button class="ghost" id="btnAnn">Announcements</button>
+        </div>
+        <label class="row"><input type="checkbox" id="annShow" checked> Show announcements on the home screen</label>
+      </div>
+      <p class="keys">Keys: <kbd>H</kbd> home · <kbd>→</kbd> next ayah · <kbd>←</kbd> previous · <kbd>M</kbd> mute · <kbd>B</kbd> blank · <kbd>S</kbd> settings · <kbd>F</kbd> full screen</p>
+      <p class="label-small">What it heard:</p>
+      <p class="heard" id="heard"></p>
+    </div>
+  </div>
+  <!-- What's new / announcements -->
+  <div class="news" id="news" role="dialog" aria-modal="true" aria-labelledby="newsTitle" hidden>
+    <div class="news-card">
+      <h2 id="newsTitle">What's new</h2>
+      <div class="news-body" id="newsBody"></div>
+      <button id="newsClose">Got it</button>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script>window.__SAMIA_ANDROID__ = {"version":"1.1.0"};</script>
+  <script src="/src/renderer/android-bridge.js"></script>
+  <script type="module" src="/src/renderer/app.js"></script>
+</body>
+</html>

@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 4,
+    version: '1.3.0',
+    title: 'Sami\'a 1.3',
+    items: [
+      'A new intro when the app opens: the logo draws itself, then glides into the home screen as the modes rise in. Any key or click skips it, and Settings can turn it off.',
+    ],
+  },
+  {
     id: 3,
     version: '1.2.0',
     title: 'Sami\'a 1.2',
