@@ -164,3 +164,16 @@ test('tracker: al-Mulk, then Bismillah and al-Kawthar: found within the second a
   }
   assert.ok(at > 0 && at <= 32, `found after ${at} letters of al-Kawthar`);
 });
+
+test('tracker: al-Asr, then al-Kawthar with no Bismillah: no wrong surah flashes up, found by the second ayah', () => {
+  const text = (s, n) => { let t = ''; for (let i = ix.indexOf(s, 1), k = 0; k < n; k++, i++) t += ix.letters.slice(ix.ayahStart[i], ix.ayahStart[i + 1]); return t; };
+  const tr = new Tracker(ix);
+  const asr = text(103, 3);
+  for (let p = 0; p < asr.length; p += 5) tr.push(asr.slice(p, p + 5));
+  const k = text(108, 3);
+  const seen = [];
+  for (let p = 0; p < k.length; p += 5) { const r = tr.push(k.slice(p, p + 5)); if (r.ayah) seen.push([p + 5, r.ayah.surah]); }
+  assert.ok(seen.every(([, s]) => s === 103 || s === 108), `shown: ${JSON.stringify(seen)}`);
+  const first = seen.find(([, s]) => s === 108);
+  assert.ok(first && first[0] <= 30, `found at ${first && first[0]}`);
+});
