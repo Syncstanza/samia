@@ -399,7 +399,7 @@ i.m-skipped { background: #ff6b6b; } i.m-unread { background: #3b4a4e; }
 }
 
 /* ---------- intro (see intro.js) ---------- */
-#intro { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; cursor: none; }
+#intro { animation: introGone 0.01s 9s forwards; position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; cursor: none; }
 .intro-bg { position: absolute; inset: 0; background: #0b1215; transition: opacity 0.8s ease; }
 #intro.go .intro-bg { opacity: 0; }
 .intro-col { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1.2vh; }
@@ -424,6 +424,7 @@ i.m-skipped { background: #ff6b6b; } i.m-unread { background: #3b4a4e; }
 @keyframes introUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 #intro.go .intro-bsm { animation: none; opacity: 0; transform: translateY(-14px); }
 #intro.go .intro-title, #intro.go .intro-tag { animation: none; opacity: 1; }
+@keyframes introGone { to { opacity: 0; visibility: hidden; pointer-events: none; } }
 /* The home screen waits for the handoff, then its cards rise in. */
 .home.intro-hold .home-logo, .home.intro-hold h1, .home.intro-hold .tagline { opacity: 0; }
 .home.cards-hold .mode { opacity: 0; }
