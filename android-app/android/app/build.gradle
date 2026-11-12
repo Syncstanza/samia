@@ -4,7 +4,8 @@ apply plugin: 'com.android.application'
 def samiaVersionName = (project.findProperty("samiaVersionName") ?: "0.0.0").toString()
 def samiaVersionCode = Integer.parseInt((project.findProperty("samiaVersionCode") ?: "1").toString())
 def samiaAppId = (project.findProperty("samiaAppId") ?: "com.syncstanza.samia").toString()
-def samiaAppName = (project.findProperty("samiaAppName") ?: "Sami'a").toString()
+// (an apostrophe in an Android string resource must be escaped)
+def samiaAppName = (project.findProperty("samiaAppName") ?: "Sami'a").toString().replace("'", "\\'")
 
 android {
     namespace = "com.syncstanza.samia"
