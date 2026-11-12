@@ -3,6 +3,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  toggleFullscreen: () => ipcRenderer.invoke('win:toggleFullscreen'),
   // Settings live in a file in the app's folder: the page's own storage is
   // tied to the local server's port, which changes every start.
   settings: () => ipcRenderer.sendSync('settings:all'),

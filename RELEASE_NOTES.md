@@ -1,6 +1,14 @@
-**Sami'a 1.1**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.2**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.1
+## 🆕 New in 1.2
+
+- 📱 **Android.** Sami'a now runs on Android phones and tablets (Android 7 or newer): same speech engine, same screens, landscape. Open this page on the phone, tap `Samia-1.2.0.apk`, and allow installs from your browser when asked. Updates open the new download for you to tap.
+- 🖥 **Full-screen button works.** It opens in a window; the button (or **F**) toggles full screen. For a dedicated display PC, `npm run start:kiosk` starts full screen.
+- 🧪 Test builds keep their own settings.
+
+> On 1.1 or later? The app offers the update by itself. Android: install the .apk once; later updates are a tap from the in-app notice.
+
+## Earlier: 1.1
 
 - 🧠 **Hifz test → Recite anywhere.** No passage to pick: start from any ayah, the words appear only once you say them, and the score covers exactly what you recited.
 - 🎯 **Follows like a person reading along.** It expects the next ayah and moves as soon as its first words are heard, so the screen no longer lags at the start of each ayah. Once it has found the surah, it stays in it.

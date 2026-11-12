@@ -224,14 +224,20 @@ async function open() {
 
   const server = await startServer(0);
   const { port } = server.address();
-  const kiosk = !process.argv.includes('--window');
+  const kiosk = process.argv.includes('--kiosk'); // starts in a window; --kiosk starts full screen (for a dedicated display PC)
+
+  ipcMain.removeHandler('win:toggleFullscreen');
+  ipcMain.handle('win:toggleFullscreen', () => {
+    if (!win || win.isDestroyed()) return false;
+    win.setFullScreen(!win.isFullScreen());
+    return win.isFullScreen();
+  });
 
   win = new BrowserWindow({
     width: 1280,
     height: 720,
     backgroundColor: '#0b1215',
     fullscreen: kiosk,
-    kiosk,
     autoHideMenuBar: true,
     title: "Sami'a",
     webPreferences: { contextIsolation: true, sandbox: true, preload: join(HERE, 'preload.cjs') },

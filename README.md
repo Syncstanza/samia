@@ -12,6 +12,7 @@
 ![Offline](https://img.shields.io/badge/works-100%25%20offline-7ee36b)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)
 ![Linux](https://img.shields.io/badge/Linux-AppImage-fcc624)
+![Android](https://img.shields.io/badge/Android-APK-3ddc84)
 ![License](https://img.shields.io/badge/license-Apache--2.0-lightgrey)
 
 <br>
@@ -32,6 +33,7 @@
 |---|---|
 | Windows 10 / 11 | `Samia-Setup-x.y.z.exe` (installer) or `Samia-x.y.z.exe` (no install) |
 | Linux | `Samia-x.y.z.AppImage` |
+| Android phone / tablet | `Samia-x.y.z.apk`: open the release page on the phone, tap the file, allow installs from your browser when asked |
 
 Windows may say "Windows protected your PC" because the app isn't signed yet: click **More info → Run anyway**.
 
@@ -102,6 +104,7 @@ Windows may say "Windows protected your PC" because the app isn't signed yet: cl
 | 💻 **Computer** | 64-bit Windows 10 or Linux laptop / mini PC, 4-core CPU, 8 GB RAM | Any recent laptop, or a mini PC behind the TV | It runs the speech model locally. |
 | 📺 **Screen** | Any TV or projector with HDMI | 1080p or 4K TV | |
 | 🎙 **Audio** | Any microphone | A handheld or headset mic close to the reciter | A close mic in a quiet room gives the best scores. |
+| 📱 **Phone / tablet** | Android 7 or newer, 3 GB RAM | A phone from the last few years | Same speech model, same screens, on the phone. Portrait or landscape. |
 | 🎛 **Control** (optional) | A phone on the same network | A USB presenter clicker | The clicker works even with no network at all. |
 
 ---
@@ -132,11 +135,21 @@ Needs [Node.js 22+](https://nodejs.org). In the project folder:
 ```bash
 npm install          # app + Electron
 npm run model        # downloads the Quran speech model (~19 MB)
-npm start            # opens Sami'a full screen and starts listening
+npm start            # opens Sami'a in a window and starts listening
 ```
 
-`npm run start:window` opens it in a normal window.
+It opens in a normal window; the full-screen button (or <kbd>F</kbd>) toggles full screen. `npm run start:kiosk` starts straight in full screen.
 Move the mouse to show the controls (they hide again after 3 seconds). Keys: <kbd>Space</kbd> start a turn, <kbd>Enter</kbd> done, <kbd>H</kbd> home, <kbd>S</kbd> settings (audio input), <kbd>→</kbd>/<kbd>←</kbd> move by hand, <kbd>M</kbd> mute, <kbd>B</kbd> blank, <kbd>F</kbd> full screen.
+
+### Android
+
+The Android app is the same web app in an Android shell ([Capacitor](https://capacitorjs.com)).
+
+```bash
+npm run model && node tools/android-www.mjs   # builds android-app/www
+cd android-app && npm ci && npx cap sync android
+cd android && ./gradlew assembleRelease        # needs the Android SDK (or open android-app/android in Android Studio)
+```
 
 No microphone handy? `npm run serve`, then open `http://localhost:4173/?demo=2:255-2:257` to watch it follow a simulated recitation.
 
