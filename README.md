@@ -44,11 +44,13 @@ Windows may say "Windows protected your PC" because the app isn't signed yet: cl
 | 🎤 **Free recite** | Just start reciting anywhere in the Quran. Sami'a finds the ayah and follows along, lighting up each word as you reach it. |
 | 🕌 **School / Masjid competition** | For judged events. Each reciter takes a turn on the chosen passage while the audience follows every word on the big screen. No scores are shown: the judges decide. |
 | 🏆 **Friends competition** | Take turns on a passage. Sami'a scores everyone and a scoreboard ranks them at the end. |
-| 🧠 **Hifz test** | The text is hidden. Words only appear once you've recited them, so you can check your memorisation without peeking. |
+| 🧠 **Hifz test** | The text is hidden. Words only appear once you've recited them, so you can check your memorisation without peeking. Pick a passage, or **recite from anywhere** and be scored on exactly what you recited. |
 | 💯 **Accuracy score** | In Friends and Hifz test, after each turn you get a percentage and the whole passage with every word marked: ✅ correct, 🟡 check (said differently), ❌ skipped, ⚪ not reached. |
 | 📖 **Arabic + translation** | Large Uthmani script with an English translation underneath. |
 | 🎛 **Easy controls** | Mouse, keyboard or a USB presenter clicker. Controls hide until you move the mouse. |
 | 📶 **No internet needed** | Speech recognition runs on the computer itself. |
+| 🔄 **Updates in one click** | When a new version is out, *Update available* appears on the home screen. One click downloads it, checks it and restarts. Settings shows the version, *Check for updates* and *What's new*. |
+| 📣 **Announcements** | News and tips from Syncstanza in a small bar on the home screen (can be turned off in Settings). |
 | 🔒 **Nothing is recorded** | Audio is processed live and thrown away. Nothing is saved or sent anywhere. |
 | 🌍 **More languages** | Bengali, Urdu and more translations come *later*. |
 
@@ -142,7 +144,9 @@ No microphone handy? `npm run serve`, then open `http://localhost:4173/?demo=2:2
 
 ## 🔐 Privacy
 
-No account, no tracking, no internet. Audio never leaves the computer and is never saved. There is nothing to send.
+No account, no tracking. Audio never leaves the computer and is never saved.
+
+The only time Sami'a goes online is to check GitHub for a new version and for announcements (a few seconds after start, then every 6 hours). Nothing about you or your recitation is sent. Without internet everything else works the same.
 
 ---
 

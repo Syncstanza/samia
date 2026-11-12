@@ -10,15 +10,25 @@
 import { startCapture, listInputs, micError } from './capture.js';
 import { normalize } from '/src/engine/normalize.js';
 import { TestRecorder } from './recorder.js';
+import { initNews } from './news.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const MODEL = '/models/quran-asr-tiny/';
 const recorder = new TestRecorder();
 
+// Settings: in the app they're kept in a file (window.api); in a plain browser
+// in the page's own storage.
+const saved = window.api ? window.api.settings() : null;
 const store = {
-  get(k, d) { try { const v = localStorage.getItem('samia.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('samia.' + k, JSON.stringify(v)); } catch { /* storage off */ } },
+  get(k, d) {
+    if (saved) return k in saved ? saved[k] : d;
+    try { const v = localStorage.getItem('samia.' + k); return v === null ? d : JSON.parse(v); } catch { return d; }
+  },
+  set(k, v) {
+    if (saved) { saved[k] = v; window.api.setSetting(k, v); return; }
+    try { localStorage.setItem('samia.' + k, JSON.stringify(v)); } catch { /* storage off */ }
+  },
 };
 
 const data = await fetch('/data/quran/quran.json').then((r) => r.json());
@@ -632,6 +642,7 @@ navigator.mediaDevices?.addEventListener?.('devicechange', fillInputs);
 document.addEventListener('keydown', (e) => {
   if (e.target.matches('input, select') && e.key !== 'Escape') return;
   if (!$('settings').hidden && e.key !== 'Escape') return;
+  if (!$('news').hidden) return; // the What's new / announcements dialog handles its own keys
   switch (e.key) {
     case ' ': if (screenName === 'ready') { e.preventDefault(); beginTurn(); } break;
     case 'Enter': if (screenName === 'turn') endTurn(); break;
@@ -677,3 +688,6 @@ $('btnFull').onclick = () => (document.fullscreenElement ? document.exitFullscre
 $('blank').addEventListener('click', () => $('blank').classList.remove('on'));
 try { await navigator.wakeLock?.request('screen'); } catch { /* not supported */ }
 screen('home');
+
+// Updates, announcements and What's new (home screen only).
+initNews({ $, store, onHome: () => screenName === 'home' });
