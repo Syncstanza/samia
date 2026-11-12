@@ -1,6 +1,10 @@
-**Sami'a 1.3**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.3.1**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.3
+## 🆕 New in 1.3.1
+
+- 🛠 **Intro fix.** The intro could stay stuck on its first frame while the app was still loading. It now starts straight away.
+
+## Earlier: 1.3
 
 - ✨ **A new intro.** The logo draws itself, the name appears, then everything glides into the home screen as the three modes rise in. Any key or click skips it, and Settings → *Play the intro when the app opens* turns it off.
 

@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 5,
+    version: '1.3.1',
+    title: 'Sami\'a 1.3.1',
+    items: [
+      'Fixed the intro sometimes staying stuck on its first frame while the app was still loading. It now starts straight away.',
+    ],
+  },
+  {
     id: 4,
     version: '1.3.0',
     title: 'Sami\'a 1.3',
