@@ -11,6 +11,7 @@ import { startCapture, listInputs, micError } from './capture.js';
 import { normalize } from '/src/engine/normalize.js';
 import { TestRecorder } from './recorder.js';
 import { initNews } from './news.js';
+import { heardOpening } from '/src/engine/opening.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -200,7 +201,12 @@ worker.onmessage = ({ data: m }) => {
   } else if (m.type === 'update') {
     recorder.addUpdate(m);
     if ((screenName === 'free' || (screenName === 'turn' && session?.free)) && shown < 0) $('idleHeard').textContent = m.heard ? m.heard.split(' ').slice(-6).join(' ') : $('idleHeard').textContent;
-    if (m.heard) { $('heard').textContent = m.heard; lastSpeechAt = performance.now(); if (screenName === 'turn') spokeInTurn = true; }
+    if (m.heard && gatePending && screenName === 'turn') {
+      gateHeard = (gateHeard + ' ' + m.heard).slice(-400);
+      const o = heardOpening(gateHeard);
+      if (o.taawwudh || o.basmala) passGate();
+    }
+    if (m.heard) { $('heard').textContent = m.heard; lastSpeechAt = performance.now(); if (screenName === 'turn' && !gatePending) spokeInTurn = true; }
     if (!following()) return;
     // In a turn the screen never leaves the passage (it would go blank).
     if (screenName === 'turn' && !session.free && m.ayah && (m.ayah.index < session.from || m.ayah.index > session.to)) return;
@@ -342,6 +348,24 @@ function showReady() {
 }
 
 let turnStarted = 0, clockTimer = 0, lastSpeechAt = 0, reachedEnd = false, spokeInTurn = false;
+// Every turn starts with a'udhu billah / Bismillah: hearing it proves the mic works. Until then the turn hasn't begun.
+let gatePending = false, gateHeard = '';
+function openGate(on) {
+  gatePending = on;
+  gateHeard = '';
+  document.body.classList.toggle('gate-on', on);
+  $('openGate').hidden = !on;
+}
+function passGate() {
+  if (!gatePending) return;
+  openGate(false);
+  turnStarted = performance.now(); // the clock starts when the reciting does
+  lastSpeechAt = performance.now();
+  spokeInTurn = false;
+  reachedEnd = false;
+  $('turnClock').textContent = '0:00';
+}
+$('gateSkip').onclick = passGate;
 function beginTurn() {
   screen('turn');
   shown = -1;
@@ -361,8 +385,10 @@ function beginTurn() {
     worker.postMessage({ type: 'turnStart', from: session.from, to: session.to });
   }
   turnStarted = performance.now();
+  openGate(true);
   clearInterval(clockTimer);
   clockTimer = setInterval(() => {
+    if (gatePending) return;
     const s = Math.floor((performance.now() - turnStarted) / 1000);
     $('turnClock').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     // Ends by itself: last word reached, then 2.5 s of silence. From anywhere
@@ -385,6 +411,7 @@ function watchForEnd(m) {
 
 function endTurn() {
   if (screenName !== 'turn') return;
+  if (gatePending) openGate(false);
   clearInterval(clockTimer);
   session.reciters[session.i].seconds = Math.round((performance.now() - turnStarted) / 1000);
   if (!scored()) {
@@ -489,6 +516,7 @@ $('judgedAgain').onclick = () => openSetup('judged');
 $('judgedHome').onclick = goHome;
 
 function goHome() {
+  if (gatePending) openGate(false);
   if (screenName === 'turn') { clearInterval(clockTimer); worker.postMessage({ type: 'turnEnd', score: false }); }
   session = null;
   showModes('main');

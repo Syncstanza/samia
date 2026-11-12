@@ -130,6 +130,13 @@
       <p class="hint">Or press <kbd>Space</kbd>. When finished, press <kbd>Enter</kbd> or <b>Done</b> <span id="readyEnds">(it also ends by itself after the last word)</span>.</p>
     </section>
 
+    <!-- Start of every turn: a'udhu billah and Bismillah, so it is clear the mic hears you -->
+    <div class="gate" id="openGate" hidden>
+      <p class="gate-ar" dir="rtl">أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ<br>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
+      <p class="gate-en">Begin with <b>A'udhu billah</b> and <b>Bismillah</b>. The turn starts as soon as Sami'a hears you.</p>
+      <button class="gate-skip" id="gateSkip">Not picking it up? Start anyway</button>
+    </div>
+
     <!-- During a turn -->
     <div class="turn-bar" id="turnBar" hidden>
       <span class="turn-clock" id="turnClock">0:00</span>
