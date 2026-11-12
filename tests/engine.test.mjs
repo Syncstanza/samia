@@ -141,3 +141,26 @@ test('tracker: moving from one surah to a short different one (al-Mulk, then al-
   }
   assert.ok(at > 0 && at <= asr.length, `found at ${at} of ${asr.length}`);
 });
+
+test('tracker: Bismillah before a surah does not send it to al-Fatiha (or al-Naml) - al-Kawthar is found in its first ayah', () => {
+  const text = (s, n) => { let t = ''; for (let i = ix.indexOf(s, 1), k = 0; k < n; k++, i++) t += ix.letters.slice(ix.ayahStart[i], ix.ayahStart[i + 1]); return t; };
+  const tr = new Tracker(ix);
+  const s = 'بسماللهالرحمنالرحيم' + text(108, 3);
+  const seen = [];
+  for (let p = 0; p < s.length; p += 8) { const r = tr.push(s.slice(p, p + 8)); if (r.ayah) seen.push(`${r.ayah.surah}:${r.ayah.ayah}`); }
+  assert.ok(seen.length > 0 && seen.every((a) => a.startsWith('108:')), `shown: ${seen}`);
+});
+
+test('tracker: al-Mulk, then Bismillah and al-Kawthar: found within the second ayah', () => {
+  const text = (s, n) => { let t = ''; for (let i = ix.indexOf(s, 1), k = 0; k < n; k++, i++) t += ix.letters.slice(ix.ayahStart[i], ix.ayahStart[i + 1]); return t; };
+  const tr = new Tracker(ix);
+  const mulk = text(67, 5);
+  for (let p = 0; p < mulk.length; p += 8) tr.push(mulk.slice(p, p + 8));
+  const to = 'بسماللهالرحمنالرحيم' + text(108, 3);
+  let at = -1;
+  for (let p = 0; p < to.length; p += 8) {
+    const r = tr.push(to.slice(p, p + 8));
+    if (at < 0 && r.ayah && r.ayah.surah === 108) at = p + 8 - 19;
+  }
+  assert.ok(at > 0 && at <= 32, `found after ${at} letters of al-Kawthar`);
+});

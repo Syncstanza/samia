@@ -19,6 +19,16 @@
 import { normalize } from './normalize.js';
 import { align } from './align.js';
 import { GRAM } from './quran-index.js';
+import { locate, BASMALA } from './opening.js';
+
+const BSM = normalize(BASMALA);
+// Bismillah is said before almost every surah, but in the text it is only al-Fatiha's first ayah, so
+// left in, it pulls the search to al-Fatiha. Search on what comes after it.
+export function withoutBismillah(q) {
+  if (q.length < BSM.length) return q;
+  const r = locate(q, BSM);
+  return r.score >= 0.7 ? q.slice(r.end) : q;
+}
 
 const DEFAULTS = {
   maxQuery: 40,        // letters of recent speech to match
@@ -38,12 +48,14 @@ const DEFAULTS = {
   fatihaSwitch: 0.7,   // LOCKED elsewhere -> jump into al-Fatiha
   fatihaProbe: 24,     // newest letters used for that check
   fatihaMinSpan: 14,   // ...and at least this much of al-Fatiha must match ("لك يوم" alone isn't enough)
+  fatihaPast: 4,       // ...and reach this far past Bismillah (which every surah starts with) into "الحمد لله"
   fatihaTail: 6,       // letters from the end of al-Fatiha that count as "finished"
   failsToSearch: 4,    // consecutive bad pushes before searching
   probeAfter: 2,       // bad pushes before a quick strict check for a different surah ("did he switch?")...
   probeMinQuery: 14,   // ...needs at least this many letters,
   probeAccept: 0.82,   // ...a clear match somewhere else in the Quran,
-  probeNeed: 2,        // ...seen by this many checks in a row (the look-alike check applies too).
+  probeNeed: 2,        // ...seen by this many checks in a row (the look-alike check applies too),
+  probeSure: 0.88,     // ...or once, when the match is this clear.
   silenceClear: 3,     // empty pushes before forgetting the buffer
   back: 220,           // letters allowed backwards (repeats)
   fwd: 450,            // letters allowed forwards
@@ -91,6 +103,7 @@ export class Tracker {
     this.probeHits = 0;
     this.probeEnd = -1;
     this.failLetters = 0; // letters heard since the match last worked
+    this.failRun = 0;     // bad pushes in a row since then (unlike fails, not reset by the slow search)
   }
 
   /**
@@ -262,7 +275,7 @@ export class Tracker {
     if (!inFatiha && !b) {
       const recent = q.slice(-this.o.fatihaProbe);
       const f = align(recent, letters, 0, fatihaEnd);
-      if (f.norm >= this.o.fatihaSwitch && f.end - f.start >= this.o.fatihaMinSpan) {
+      if (f.norm >= this.o.fatihaSwitch && f.end - f.start >= this.o.fatihaMinSpan && f.end >= this.ix.ayahStart[1] + this.o.fatihaPast) {
         this.buf = recent;
         this._accept(f);
         return;
@@ -281,10 +294,11 @@ export class Tracker {
       return;
     }
     const fails = ++this.fails;
+    this.failRun++;
     this.failLetters += this.lastAdd;
     // Only what has been heard since the match failed (the rest is the surah he just left).
     const fresh = q.slice(-Math.min(q.length, this.failLetters));
-    if (fails >= this.o.probeAfter && !inFatiha && fresh.length >= this.o.probeMinQuery && this._search(true, fresh)) return;
+    if (this.failRun >= this.o.probeAfter && !inFatiha && fresh.length >= this.o.probeMinQuery && this._search(true, fresh)) return;
     if (fails >= this.o.failsToSearch) {
       this.fails = 0;
       // Lost the place: look again in the same surah first (and the start of
@@ -320,6 +334,7 @@ export class Tracker {
     this.pos = r.end;
     this.fails = 0;
     this.failLetters = 0;
+    this.failRun = 0;
     this.surahMisses = 0;
     this.confidence = r.norm;
     this.state = 'LOCKED';
@@ -359,9 +374,9 @@ export class Tracker {
   }
 
   // ------------------------------------------------------------- SEARCHING
-  _search(probe = false, probeQ = '') {
+  /** Places in the Quran where the letters q could be, best first (a vote on 4-letter pieces, then a careful alignment). */
+  _candidates(q) {
     const { letters, grams, fatihaEnd } = this.ix;
-    const q = probe ? probeQ : this.buf;
     const BUCKET = 32;
 
     // Vote: each 4-gram of the query points at where the query could start.
@@ -395,6 +410,32 @@ export class Tracker {
     const uniq = [];
     for (const c of cands) if (!uniq.some((u) => Math.abs(u.end - c.end) < 20)) uniq.push(c);
 
+    return uniq;
+  }
+
+  _search(probe = false, probeQ = '') {
+    const raw = probe ? probeQ : this.buf;
+    const q = withoutBismillah(raw);
+    if (q.length < (probe ? this.o.probeMinQuery : this.o.minQuery)) {
+      // Bismillah, then al-Fatiha's second ayah: the one case worth recognising from a few letters ("الحمد لله رب").
+      if (!probe && q !== raw && q.length >= 10) {
+        const f = align(q, this.ix.letters, this.ix.ayahStart[1], this.ix.fatihaEnd);
+        if (f.norm >= 0.85 && f.end - f.start >= 10) this._accept(f);
+      }
+      return probe ? false : undefined;
+    }
+    let uniq;
+    if (probe) {
+      // The newest letters alone often match better than all of them (the older ones may still be the end of
+      // the last surah or the Bismillah), so try a few lengths and keep the clearest.
+      const tries = [...new Set([Math.min(q.length, this.o.probeMinQuery), Math.min(q.length, 22), q.length])];
+      for (const n of tries) {
+        const u = this._candidates(q.slice(-n));
+        if (!uniq || (u[0] && (!uniq[0] || u[0].norm > uniq[0].norm))) uniq = u;
+      }
+    } else {
+      uniq = this._candidates(q);
+    }
     const best = uniq[0];
     if (probe) return this._probe(best, uniq[1]);
     if (!best || best.norm < this.o.searchAccept) { this.pending = null; return; }
@@ -442,7 +483,7 @@ export class Tracker {
     if (best.end >= cur.lo && best.end <= cur.hi) return miss(); // still in this surah: the normal path handles it
     this.probeHits = this.probeEnd >= 0 && Math.abs(best.end - this.probeEnd) <= 80 ? this.probeHits + 1 : 1;
     this.probeEnd = best.end;
-    if (this.probeHits < this.o.probeNeed) return false;
+    if (this.probeHits < this.o.probeNeed && best.norm < this.o.probeSure) return false;
     this.probeHits = 0;
     this.pending = null;
     this._accept(best);
