@@ -52,7 +52,10 @@ const DEFAULTS = {
   fatihaTail: 6,       // letters from the end of al-Fatiha that count as "finished"
   failsToSearch: 4,    // consecutive bad pushes before searching
   probeAfter: 2,       // bad pushes before a quick strict check for a different surah ("did he switch?")...
-  probeMinQuery: 14,   // ...needs at least this many letters,
+  probeMinQuery: 14,   // ...needs at least this many letters for a normal match,
+  probeShortMin: 6,    // ...or this many if they are matched exactly and nothing else in the Quran fits ("والعصر"),
+  probeShortSure: 0.97,
+  crossAccept: 0.8,    // moving into another surah on the normal path needs a clearer match (a few letters can fit the start of a neighbour by chance)
   probeAccept: 0.82,   // ...a clear match somewhere else in the Quran,
   probeNeed: 2,        // ...seen by this many checks in a row (the look-alike check applies too),
   probeSure: 0.88,     // ...or once, when the match is this clear.
@@ -251,7 +254,9 @@ export class Tracker {
     // If we were behind, everything heard may be new: allow catching up by
     // up to the whole query length.
     const reach = Math.max(expect + this.o.stepSlack * 2, this.pos + Math.round(q.length * this.o.catchUp) + this.o.stepSlack);
-    if (near.norm >= this.o.lockAccept && near.end >= this.pos - 2 && near.end <= reach && this._heardAhead(near)) {
+    const curSurah = this.ix.ref(ayahOf[Math.max(0, Math.min(this.pos, letters.length) - 1)]).surah;
+    const crosses = (x) => this.ix.ref(ayahOf[Math.max(0, x.end - 1)]).surah !== curSurah;
+    if (near.norm >= this.o.lockAccept && near.end >= this.pos - 2 && near.end <= reach && this._heardAhead(near) && (!crosses(near) || near.norm >= this.o.crossAccept)) {
       this._accept(near);
       return;
     }
@@ -265,7 +270,7 @@ export class Tracker {
     if (r.end < this.pos - 10) need = this.o.backAccept;
     else if (skip >= 2) need = q.length >= this.o.skipMinQuery ? this.o.skipAccept : Infinity;
     // Within the ayah (or into the next), words can't be passed over unheard.
-    if (r.norm >= need && (skip >= 2 || this._heardAhead(r))) {
+    if (r.norm >= need && (skip >= 2 || this._heardAhead(r)) && (!crosses(r) || r.norm >= this.o.crossAccept)) {
       this._accept(r);
       return;
     }
@@ -298,7 +303,7 @@ export class Tracker {
     this.failLetters += this.lastAdd;
     // Only what has been heard since the match failed (the rest is the surah he just left).
     const fresh = q.slice(-Math.min(q.length, this.failLetters));
-    if (this.failRun >= this.o.probeAfter && !inFatiha && fresh.length >= this.o.probeMinQuery && this._search(true, fresh)) return;
+    if (this.failRun >= this.o.probeAfter && !inFatiha && fresh.length >= this.o.probeShortMin && this._search(true, fresh)) return;
     if (fails >= this.o.failsToSearch) {
       this.fails = 0;
       // Lost the place: look again in the same surah first (and the start of
@@ -416,7 +421,7 @@ export class Tracker {
   _search(probe = false, probeQ = '') {
     const raw = probe ? probeQ : this.buf;
     const q = withoutBismillah(raw);
-    if (q.length < (probe ? this.o.probeMinQuery : this.o.minQuery)) {
+    if (q.length < (probe ? this.o.probeShortMin : this.o.minQuery)) {
       // Bismillah, then al-Fatiha's second ayah: the one case worth recognising from a few letters ("الحمد لله رب").
       if (!probe && q !== raw && q.length >= 10) {
         const f = align(q, this.ix.letters, this.ix.ayahStart[1], this.ix.fatihaEnd);
@@ -431,6 +436,7 @@ export class Tracker {
       const tries = [...new Set([Math.min(q.length, this.o.probeMinQuery), Math.min(q.length, 22), q.length])];
       for (const n of tries) {
         const u = this._candidates(q.slice(-n));
+        for (const c of u) c.qlen = n;
         if (!uniq || (u[0] && (!uniq[0] || u[0].norm > uniq[0].norm))) uniq = u;
       }
     } else {
@@ -477,13 +483,14 @@ export class Tracker {
    */
   _probe(best, second) {
     const miss = () => { this.probeHits = 0; return false; };
-    if (!best || best.norm < this.o.probeAccept) return miss();
+    const short = best && best.qlen < this.o.probeMinQuery;
+    if (!best || best.norm < (short ? this.o.probeShortSure : this.o.probeAccept)) return miss();
     if (second && best.rank - second.rank < this.o.ambiguityGap) return miss();
     const cur = this.ix.surahRange(this.ix.ayahOf[Math.min(Math.max(this.pos - 1, 0), this.ix.letters.length - 1)]);
     if (best.end >= cur.lo && best.end <= cur.hi) return miss(); // still in this surah: the normal path handles it
     this.probeHits = this.probeEnd >= 0 && Math.abs(best.end - this.probeEnd) <= 80 ? this.probeHits + 1 : 1;
     this.probeEnd = best.end;
-    if (this.probeHits < this.o.probeNeed && best.norm < this.o.probeSure) return false;
+    if (!short && this.probeHits < this.o.probeNeed && best.norm < this.o.probeSure) return false;
     this.probeHits = 0;
     this.pending = null;
     this._accept(best);
