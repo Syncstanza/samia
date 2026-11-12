@@ -11,6 +11,7 @@ import { startCapture, listInputs, micError } from './capture.js';
 import { normalize } from '/src/engine/normalize.js';
 import { TestRecorder } from './recorder.js';
 import { initNews } from './news.js';
+import { initIntro } from './intro.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -30,6 +31,8 @@ const store = {
     try { localStorage.setItem('samia.' + k, JSON.stringify(v)); } catch { /* storage off */ }
   },
 };
+
+initIntro({ $, store }); // first, so the intro is on screen while everything else loads
 
 const data = await fetch('/data/quran/quran.json').then((r) => r.json());
 const worker = new Worker('/src/engine/worker.js', { type: 'module' });
