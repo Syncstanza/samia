@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 9,
+    version: '1.5.2',
+    title: 'Sami\'a 1.5.2',
+    items: [
+      'Android: pulling down the status bar no longer pushes the app aside and shows dark bars. The bar now slides over the app.',
+    ],
+  },
+  {
     id: 8,
     version: '1.5.1',
     title: 'Sami\'a 1.5.1',
