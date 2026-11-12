@@ -1,13 +1,25 @@
-The first release of **Sami'a**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and fully offline.
+**Sami'a 1.1**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## ✨ What's in 1.0
+## 🆕 New in 1.1
+
+- 🧠 **Hifz test → Recite anywhere.** No passage to pick: start from any ayah, the words appear only once you say them, and the score covers exactly what you recited.
+- 🎯 **Follows like a person reading along.** It expects the next ayah and moves as soon as its first words are heard, so the screen no longer lags at the start of each ayah. Once it has found the surah, it stays in it.
+- 🔁 **Repeated words fixed.** Words that appear twice in an ayah (like the two عليهم in al-Fatiha) no longer make it jump ahead.
+- ⚡ **Free recite finds you faster:** usually within 4–5 seconds, showing the words it hears while it looks.
+- 🔄 **Updates in one click.** From this version on, *Update available* appears on the home screen when a new version is out. Settings shows the version, *Check for updates* and *What's new*.
+- 📣 **Announcements:** news and tips in a small bar on the home screen (can be turned off).
+- 💾 **Settings are kept between starts** (microphone, names, last passage).
+
+> Coming from 1.0? Download 1.1 once by hand from the files below. After that, updates install from inside the app.
+
+## ✨ All modes
 
 | Mode | What it does |
 |---|---|
 | 🎤 **Free recite** | Start anywhere in the Quran. Sami'a finds the ayah (usually within a few seconds) and follows you word by word. |
 | 🕌 **School / Masjid competition** | For judged events. Each reciter takes a turn while the audience follows the ayat on screen. No scores shown: the judges decide. |
 | 🏆 **Friends competition** | Take turns on a passage. Sami'a scores everyone and ranks them on a scoreboard. |
-| 🧠 **Hifz test** | The text stays hidden and appears only as you recite it. Scored at the end. |
+| 🧠 **Hifz test** | The text stays hidden and appears only as you recite it. Pick a passage or recite from anywhere. Scored at the end. |
 
 Scores mark every word: ✅ correct, 🟡 check, ❌ skipped, ⚪ not reached.
 
@@ -15,9 +27,9 @@ Scores mark every word: ✅ correct, 🟡 check, ❌ skipped, ⚪ not reached.
 
 | You have | Download |
 |---|---|
-| Windows 10 / 11 (install it) | `Samia-Setup-1.0.0.exe` |
-| Windows, no install (USB stick, school PC) | `Samia-1.0.0.exe` |
-| Linux | `Samia-1.0.0.AppImage`, then `chmod +x` it and run (add `--no-sandbox` on newer Ubuntu/Mint if it won't start) |
+| Windows 10 / 11 (install it) | `Samia-Setup-1.1.0.exe` |
+| Windows, no install (USB stick, school PC) | `Samia-1.1.0.exe` |
+| Linux | `Samia-1.1.0.AppImage`, then `chmod +x` it and run (add `--no-sandbox` on newer Ubuntu/Mint if it won't start) |
 
 Windows may show "Windows protected your PC" because the app isn't signed yet: click **More info → Run anyway**.
 
@@ -27,6 +39,6 @@ Windows may show "Windows protected your PC" because the app isn't signed yet: c
 
 ## 🔒 Privacy
 
-No account, no internet, nothing recorded or sent anywhere.
+No account, nothing recorded. The app only goes online to check for updates and announcements; nothing about you or your recitation is sent.
 
 Quran text: Tanzil.net · Translation: Saheeh International · Font: Amiri Quran

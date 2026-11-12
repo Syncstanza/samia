@@ -53,6 +53,13 @@ const DEFAULTS = {
   anchorAccept: 0.8,   // ...when they match this clearly
   anchorNearEnd: 0.4,  // ...and the reciter is in the last 40% of the ayah (or 8 letters)
   surahTries: 3,       // looks within the surah before searching the whole Quran
+  tailFree: 10,        // newest heard letters that may be left out when they don't fit
+                       // (the speech model running ahead of the reciter)
+  aheadMin: 6,         // a forward move of this many letters or more...
+  aheadNext: 8,        // ...needs the next this-many letters after the reciter's place...
+  aheadMatch: 0.5,     // ...to be at least this share actually heard. A reciter
+                       // doesn't skip words mid-ayah; the speech model does "finish"
+                       // familiar ayat ("أنعمت عليهم" heard as "...عليهم ولا الضالين")
 };
 
 export class Tracker {
@@ -220,11 +227,11 @@ export class Tracker {
     //    highlight moves word by word and never hops to the same phrase
     //    elsewhere in the window.
     const expect = this.pos + this.lastAdd;
-    const near = align(q, letters, lo, hi, expect, this.o.stepPenalty, this.o.stepSlack);
+    const near = align(q, letters, lo, hi, expect, this.o.stepPenalty, this.o.stepSlack, this.pos, this.pos + this.o.aheadNext, this.o.tailFree);
     // If we were behind, everything heard may be new: allow catching up by
     // up to the whole query length.
     const reach = Math.max(expect + this.o.stepSlack * 2, this.pos + Math.round(q.length * this.o.catchUp) + this.o.stepSlack);
-    if (near.norm >= this.o.lockAccept && near.end >= this.pos - 2 && near.end <= reach) {
+    if (near.norm >= this.o.lockAccept && near.end >= this.pos - 2 && near.end <= reach && this._heardAhead(near)) {
       this._accept(near);
       return;
     }
@@ -232,12 +239,13 @@ export class Tracker {
     // 2. Otherwise he repeated or skipped: allow a jump, but going backwards
     //    (a repeat) or past the next ayah needs a clearer match, since common
     //    phrases ("الذين آمنوا") appear every few ayat.
-    const r = align(q, letters, lo, hi, expect);
+    const r = align(q, letters, lo, hi, expect, 0, 0, this.pos, this.pos + this.o.aheadNext, this.o.tailFree);
     const skip = ayahOf[Math.max(0, r.end - 1)] - curAyah;
     let need = this.o.jumpAccept;
     if (r.end < this.pos - 10) need = this.o.backAccept;
     else if (skip >= 2) need = q.length >= this.o.skipMinQuery ? this.o.skipAccept : Infinity;
-    if (r.norm >= need) {
+    // Within the ayah (or into the next), words can't be passed over unheard.
+    if (r.norm >= need && (skip >= 2 || this._heardAhead(r))) {
       this._accept(r);
       return;
     }
@@ -281,6 +289,18 @@ export class Tracker {
         this.pending = null;
       }
     }
+  }
+
+  /**
+   * Were the words right after the reciter's place really heard? Moving on
+   * always starts with the next word. A match can pass over it by pairing it
+   * with other letters (what the speech model invented: the end of a familiar
+   * ayah) or skipping it; then it's not a real step forward.
+   */
+  _heardAhead(r) {
+    if (r.end - this.pos < this.o.aheadMin || r.start > this.pos) return true;
+    const next = Math.min(this.o.aheadNext, r.end - this.pos);
+    return r.missed <= next * (1 - this.o.aheadMatch);
   }
 
   _accept(r) {

@@ -312,6 +312,47 @@ i.m-skipped { background: #ff6b6b; } i.m-unread { background: #3b4a4e; }
 #board .pts { font-weight: 700; font-size: 3.2vh; }
 #board .sub { color: var(--muted); font-size: 1.8vh; }
 
+/* Setup: hifz from a chosen passage or from anywhere */
+.choice .small-btn.on { background: rgba(34, 227, 210, 0.16); border-color: var(--accent, #22e3d2); color: var(--text, #fff); }
+
 /* Competition: choose judged (school / masjid) or friends */
 #modesBack { margin-top: 2.5vh; }
 #modesCompetition .mode { max-width: 34vw; }
+
+/* ---------- updates, announcements, what's new ---------- */
+.panel { max-height: 92vh; overflow-y: auto; overflow-x: hidden; }
+.panel, .news-card, .review { scrollbar-width: thin; scrollbar-color: #2b4a50 transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2b4a50; border-radius: 8px; }
+.about { margin-top: 18px; padding-top: 14px; border-top: 1px solid #1d3238; }
+.about .buttons { flex-wrap: wrap; }
+.update-btn {
+  position: absolute; top: 3.5vh; right: 3vw; padding: 1vh 1.6vw; border-radius: 999px; font-size: 1.8vh; font-weight: 600;
+  background: linear-gradient(135deg, #22e3d2, #19b8a9); color: #04201d; border: 0; cursor: pointer;
+  box-shadow: 0 0 30px rgba(34, 227, 210, 0.35);
+}
+.ann-bar {
+  position: absolute; left: 50%; bottom: 6vh; transform: translateX(-50%); width: min(70vw, 900px);
+  display: flex; align-items: center; gap: 1.5vw; padding: 1.4vh 1.6vw; border-radius: 14px;
+  background: #2a2414; border: 1px solid rgba(245, 184, 46, 0.4); color: #f3e3bd; font-size: 1.9vh; text-align: left; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+.ann-bar span { flex: 1; }
+.news { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(5, 10, 12, 0.72); backdrop-filter: blur(6px); }
+.news[hidden] { display: none; }
+.news-card {
+  width: min(680px, 90vw); max-height: 82vh; overflow-y: auto; overflow-x: hidden; padding: 28px 32px; border-radius: 18px;
+  background: rgba(15, 29, 34, 0.98); border: 1px solid rgba(34, 227, 210, 0.25); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+.news-card h2 { margin: 0 0 12px; font-weight: 600; }
+.news-body h3 { margin: 18px 0 6px; font-size: 16px; color: var(--accent, #22e3d2); }
+.news-body ul { margin: 0 0 8px; padding-left: 20px; line-height: 1.5; }
+.news-body li { margin: 6px 0; }
+.news-body p { margin: 6px 0 12px; line-height: 1.5; }
+.news-card > button { margin-top: 16px; }
+.toast {
+  position: fixed; left: 50%; bottom: 5vh; transform: translateX(-50%); z-index: 40; max-width: 80vw;
+  padding: 12px 20px; border-radius: 12px; background: rgba(15, 29, 34, 0.97); border: 1px solid rgba(34, 227, 210, 0.3);
+  font-size: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.toast[hidden] { display: none; }

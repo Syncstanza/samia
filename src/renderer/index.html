@@ -84,6 +84,9 @@
       </div>
       <button class="ghost" id="modesBack" hidden>Back</button>
       <p class="home-keys">Settings: <kbd>S</kbd> · Full screen: <kbd>F</kbd></p>
+      <!-- Home screen only: never shown over a recitation -->
+      <button class="update-btn" id="btnUpdate" hidden>Update available</button>
+      <div class="ann-bar" id="annBar" role="status" hidden><span id="annText"></span><button class="ghost small-btn" id="annClose">Dismiss</button></div>
     </section>
 
     <!-- Competition / hifz setup -->
@@ -91,10 +94,15 @@
       <h2 id="setupTitle">Competition</h2>
       <div class="field">
         <span class="label">Passage</span>
-        <div class="row">
+        <div class="row choice" id="pickWhere" hidden>
+          <button class="ghost small-btn on" id="wherePassage">Choose a passage</button>
+          <button class="ghost small-btn" id="whereAnywhere">Recite anywhere</button>
+        </div>
+        <p class="hint" id="anywhereInfo" hidden>Start from any ayah you like. Sami'a finds where you are, shows each word only once you've said it, and scores what you recited, from where you started to where you stopped.</p>
+        <div class="row" id="pickSurahRow">
           <select id="pickSurah"></select>
         </div>
-        <div class="row">
+        <div class="row" id="pickRangeRow">
           <span class="small">From ayah</span> <input id="pickFrom" type="number" min="1" value="1">
           <span class="small">to</span> <input id="pickTo" type="number" min="1" value="1">
           <button class="ghost small-btn" id="pickWhole">Whole surah</button>
@@ -119,7 +127,7 @@
       <h2 id="readyName"></h2>
       <p id="readyPassage"></p>
       <button id="readyGo">Start reciting</button>
-      <p class="hint">Or press <kbd>Space</kbd>. When finished, press <kbd>Enter</kbd> or <b>Done</b> (it also ends by itself after the last word).</p>
+      <p class="hint">Or press <kbd>Space</kbd>. When finished, press <kbd>Enter</kbd> or <b>Done</b> <span id="readyEnds">(it also ends by itself after the last word)</span>.</p>
     </section>
 
     <!-- During a turn -->
@@ -223,11 +231,29 @@
         <button id="saveTest" class="ghost">Save test recording (last 2 min)</button>
       </div>
       <p class="hint">Saves the last 2 minutes from the microphone and what Sami'a heard, to your Downloads folder. Nothing is saved unless you press this.</p>
+      <div class="about">
+        <p class="label-small" id="aboutVersion"></p>
+        <div class="buttons">
+          <button class="ghost" id="btnCheckUpdate">Check for updates</button>
+          <button class="ghost" id="btnWhatsNew">What's new</button>
+          <button class="ghost" id="btnAnn">Announcements</button>
+        </div>
+        <label class="row"><input type="checkbox" id="annShow" checked> Show announcements on the home screen</label>
+      </div>
       <p class="keys">Keys: <kbd>H</kbd> home · <kbd>→</kbd> next ayah · <kbd>←</kbd> previous · <kbd>M</kbd> mute · <kbd>B</kbd> blank · <kbd>S</kbd> settings · <kbd>F</kbd> full screen</p>
       <p class="label-small">What it heard:</p>
       <p class="heard" id="heard"></p>
     </div>
   </div>
+  <!-- What's new / announcements -->
+  <div class="news" id="news" role="dialog" aria-modal="true" aria-labelledby="newsTitle" hidden>
+    <div class="news-card">
+      <h2 id="newsTitle">What's new</h2>
+      <div class="news-body" id="newsBody"></div>
+      <button id="newsClose">Got it</button>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" hidden></div>
   <script type="module" src="/src/renderer/app.js"></script>
 </body>
 </html>

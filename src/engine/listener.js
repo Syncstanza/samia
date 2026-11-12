@@ -12,6 +12,7 @@ import { Utterances } from './utterances.js';
 export const SR = 16000;
 
 const DEFAULTS = {
+  historyAge: 8,      // seconds earlier phrases are kept while searching
   window: 3.5,        // seconds of audio the model looks at
   hop: 0.4,           // how often it looks
   minLevel: 0.0008,   // absolute floor: quieter than this is silence
@@ -33,14 +34,22 @@ export class Listener {
     this.lastHeard = '';
     // While still finding the place: what was heard in earlier phrases. Short
     // ayat ("عم يتساءلون") are too short to place on their own; a few
-    // together are not.
-    this.history = '';
+    // together are not. Phrases expire after historyAge seconds, so old words
+    // (the end of al-Fatiha, mumbling) don't spoil the search for what's
+    // being recited now.
+    this.history = []; // [{text, t}]
+    this.clock = 0;    // seconds of audio heard
     this.phrase = '';
     this.recording = null; // array of Float32Array chunks while a turn is recorded
     this.recorded = 0;
   }
 
-  clearAudio() { this.ring = new Float32Array(0); this.history = ''; this.phrase = ''; }
+  clearAudio() { this.ring = new Float32Array(0); this.history = []; this.phrase = ''; }
+
+  _recent() {
+    this.history = this.history.filter((h) => h.t >= this.clock - this.o.historyAge);
+    return this.history.map((h) => h.text).join(' ');
+  }
 
   startRecording() { this.recording = []; this.recorded = 0; }
 
@@ -72,6 +81,7 @@ export class Listener {
     next.set(samples.subarray(Math.max(0, samples.length - next.length)), Math.max(0, keep));
     this.ring = next;
     this.sinceHop += samples.length;
+    this.clock += samples.length / SR;
     if (this.sinceHop >= this.o.hop * SR && !this.busy) {
       this.sinceHop = 0;
       const out = await this.hop();
@@ -98,7 +108,7 @@ export class Listener {
         if (this.phrase && this.tracker.state !== 'LOCKED') {
           // A phrase ended while searching: keep its words, start the next
           // phrase on fresh audio.
-          this.history = (this.history + ' ' + this.phrase).slice(-160);
+          this.history.push({ text: this.phrase, t: this.clock });
           this.ring = new Float32Array(0);
         }
         this.phrase = '';
@@ -107,9 +117,9 @@ export class Listener {
         const started = performance.now();
         this.lastHeard = await this.asr.transcribe(gain(this.ring, voice.level, this.o));
         this.phrase = this.lastHeard;
-        const searching = this.tracker.state !== 'LOCKED' && this.history;
-        out = this.tracker.observe(searching ? this.history + ' ' + this.lastHeard : this.lastHeard, Math.min(1, hopLen / this.ring.length));
-        if (this.tracker.state === 'LOCKED') this.history = '';
+        const before = this.tracker.state !== 'LOCKED' ? this._recent() : '';
+        out = this.tracker.observe(before ? before + ' ' + this.lastHeard : this.lastHeard, Math.min(1, hopLen / this.ring.length));
+        if (this.tracker.state === 'LOCKED') this.history = [];
         out.ms = Math.round(performance.now() - started);
       }
       if (out.clearAudio) this.clearAudio();

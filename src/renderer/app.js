@@ -10,15 +10,25 @@
 import { startCapture, listInputs, micError } from './capture.js';
 import { normalize } from '/src/engine/normalize.js';
 import { TestRecorder } from './recorder.js';
+import { initNews } from './news.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const MODEL = '/models/quran-asr-tiny/';
 const recorder = new TestRecorder();
 
+// Settings: in the app they're kept in a file (window.api); in a plain browser
+// in the page's own storage.
+const saved = window.api ? window.api.settings() : null;
 const store = {
-  get(k, d) { try { const v = localStorage.getItem('samia.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('samia.' + k, JSON.stringify(v)); } catch { /* storage off */ } },
+  get(k, d) {
+    if (saved) return k in saved ? saved[k] : d;
+    try { const v = localStorage.getItem('samia.' + k); return v === null ? d : JSON.parse(v); } catch { return d; }
+  },
+  set(k, v) {
+    if (saved) { saved[k] = v; window.api.setSetting(k, v); return; }
+    try { localStorage.setItem('samia.' + k, JSON.stringify(v)); } catch { /* storage off */ }
+  },
 };
 
 const data = await fetch('/data/quran/quran.json').then((r) => r.json());
@@ -27,7 +37,8 @@ let shown = -1;
 let asrReady = false;
 let capture = null;
 let screenName = 'home';
-let session = null; // turns: {mode: 'judged'|'friends'|'hifz', from, to, hide, reciters: [{name, result}], i}
+let session = null; // turns: {mode: 'judged'|'friends'|'hifz', free, from, to, hide, reciters: [{name, result}], i}
+// free: hifz from anywhere (no passage chosen; from/to come with each result)
 const scored = () => session && session.mode !== 'judged';
 
 // ------------------------------------------------------------------ screens
@@ -72,7 +83,7 @@ function fill(el, index, { full }) {
   el.replaceChildren();
   if (index < 0 || index >= data.ayat.length) return;
   // In a turn, only the passage is shown.
-  if (screenName === 'turn' && session && (index < session.from || index > session.to)) return;
+  if (screenName === 'turn' && session && !session.free && (index < session.from || index > session.to)) return;
   const p = ayahParts(index);
   if (full && p.bismillah) {
     const b = document.createElement('div');
@@ -187,11 +198,11 @@ worker.onmessage = ({ data: m }) => {
     if (!asrReady) status('manual', 'No speech model');
   } else if (m.type === 'update') {
     recorder.addUpdate(m);
-    if (screenName === 'free' && shown < 0) $('idleHeard').textContent = m.heard ? m.heard.split(' ').slice(-6).join(' ') : $('idleHeard').textContent;
+    if ((screenName === 'free' || (screenName === 'turn' && session?.free)) && shown < 0) $('idleHeard').textContent = m.heard ? m.heard.split(' ').slice(-6).join(' ') : $('idleHeard').textContent;
     if (m.heard) { $('heard').textContent = m.heard; lastSpeechAt = performance.now(); if (screenName === 'turn') spokeInTurn = true; }
     if (!following()) return;
     // In a turn the screen never leaves the passage (it would go blank).
-    if (screenName === 'turn' && m.ayah && (m.ayah.index < session.from || m.ayah.index > session.to)) return;
+    if (screenName === 'turn' && !session.free && m.ayah && (m.ayah.index < session.from || m.ayah.index > session.to)) return;
     if (m.ayah && m.changed) render(m.ayah.index).then(() => light(m.letter));
     else if (m.ayah && m.ayah.index === shown) light(m.letter);
     if (screenName === 'turn') watchForEnd(m);
@@ -256,9 +267,21 @@ function openSetup(mode) {
   names.forEach(addReciterRow);
   $('hideText').checked = mode === 'hifz';
   setupMode = mode;
+  $('pickWhere').hidden = mode !== 'hifz';
+  setWhere(mode === 'hifz' && !!last.hifzAnywhere);
   passageInfo();
   screen('setup');
 }
+let anywhere = false;
+function setWhere(free) {
+  anywhere = free;
+  $('wherePassage').classList.toggle('on', !free);
+  $('whereAnywhere').classList.toggle('on', free);
+  $('anywhereInfo').hidden = !free;
+  for (const id of ['pickSurahRow', 'pickRangeRow', 'pickInfo']) $(id).hidden = free;
+}
+$('wherePassage').onclick = () => setWhere(false);
+$('whereAnywhere').onclick = () => setWhere(true);
 let setupMode = 'friends';
 const namesKey = (mode) => ({ hifz: 'hifzNames', judged: 'judgedNames' }[mode] || 'names');
 
@@ -299,8 +322,9 @@ $('setupStart').onclick = () => {
   const p = readPassage();
   const names = [...$('reciters').querySelectorAll('input')].map((i, k) => i.value.trim() || `Reciter ${k + 1}`);
   const last = store.get('session', {});
-  store.set('session', { ...last, surah: p.s, fromAyah: p.a1, toAyah: p.a2, [namesKey(setupMode)]: names });
-  session = { mode: setupMode, from: p.from, to: p.to, hide: $('hideText').checked, reciters: names.map((name) => ({ name })), i: 0 };
+  const free = setupMode === 'hifz' && anywhere;
+  store.set('session', { ...last, surah: p.s, fromAyah: p.a1, toAyah: p.a2, [namesKey(setupMode)]: names, ...(setupMode === 'hifz' ? { hifzAnywhere: free } : {}) });
+  session = { mode: setupMode, free, from: free ? null : p.from, to: free ? null : p.to, hide: $('hideText').checked, reciters: names.map((name) => ({ name })), i: 0 };
   showReady();
 };
 
@@ -309,7 +333,8 @@ function showReady() {
   const r = session.reciters[session.i];
   $('readyCount').textContent = session.reciters.length > 1 ? `Reciter ${session.i + 1} of ${session.reciters.length}` : ({ hifz: 'Hifz test', judged: 'Competition' }[session.mode] || 'Recitation');
   $('readyName').textContent = r.name;
-  $('readyPassage').textContent = refLabel(session.from, session.to) + (session.hide ? ' · text hidden' : '');
+  $('readyPassage').textContent = (session.free ? 'From anywhere you like' : refLabel(session.from, session.to)) + (session.hide ? ' · text hidden' : '');
+  $('readyEnds').textContent = session.free ? '(it also ends by itself after 8 seconds of silence)' : '(it also ends by itself after the last word)';
   screen('ready');
   $('readyGo').focus();
 }
@@ -318,23 +343,36 @@ let turnStarted = 0, clockTimer = 0, lastSpeechAt = 0, reachedEnd = false, spoke
 function beginTurn() {
   screen('turn');
   shown = -1;
-  render(session.from, true);
   reachedEnd = false;
   spokeInTurn = false;
   lastSpeechAt = performance.now();
-  worker.postMessage({ type: 'turnStart', from: session.from, to: session.to });
+  if (session.free) {
+    // From anywhere: nothing on screen until Sami'a finds the place.
+    for (const id of ['prev', 'current', 'next']) $(id).replaceChildren();
+    $('surahAr').textContent = ''; $('surahEn').textContent = ''; $('juz').textContent = '';
+    $('idleText').textContent = 'Start reciting from anywhere… the words appear as you say them.';
+    $('idleHeard').textContent = '';
+    document.body.classList.add('idle-on');
+    worker.postMessage({ type: 'turnStart', free: true });
+  } else {
+    render(session.from, true);
+    worker.postMessage({ type: 'turnStart', from: session.from, to: session.to });
+  }
   turnStarted = performance.now();
   clearInterval(clockTimer);
   clockTimer = setInterval(() => {
     const s = Math.floor((performance.now() - turnStarted) / 1000);
     $('turnClock').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    // Ends by itself: last word reached, then 2.5 s of silence.
+    // Ends by itself: last word reached, then 2.5 s of silence. From anywhere
+    // there is no last word: 8 s of silence once something was followed.
     if (reachedEnd && performance.now() - lastSpeechAt > 2500) endTurn();
+    if (session.free && shown >= 0 && spokeInTurn && performance.now() - lastSpeechAt > 8000) endTurn();
   }, 250);
   status('listening', 'Listening');
 }
 
 function watchForEnd(m) {
+  if (session.free) return;
   // Only what was recited in THIS turn counts (a late result from the previous
   // turn could still arrive just after it starts).
   if (!spokeInTurn || performance.now() - turnStarted < 1000) return;
@@ -364,8 +402,23 @@ function endTurn() {
 function showResult(r) {
   if (!scored() || screenName !== 'checking') return;
   const who = session.reciters[session.i];
+  const time = `${Math.floor(who.seconds / 60)}:${String(who.seconds % 60).padStart(2, '0')}`;
+  if (r.none) {
+    // From anywhere, and nothing was found to score.
+    who.result = null;
+    $('resultWho').textContent = `${who.name} · ${time}`;
+    $('resultScore').textContent = '–';
+    for (const id of ['cntCorrect', 'cntMistake', 'cntSkipped', 'cntUnread']) $(id).textContent = 0;
+    const p = document.createElement('p');
+    p.className = 'ayah-line none';
+    p.textContent = "Sami'a couldn't find where you were reciting. Try again, a little closer to the microphone.";
+    $('review').replaceChildren(p);
+    $('resultNext').textContent = session.i === session.reciters.length - 1 ? (session.reciters.length > 1 ? 'See the scoreboard' : 'Done') : `Next: ${session.reciters[session.i + 1].name}`;
+    screen('result');
+    return;
+  }
   who.result = r;
-  $('resultWho').textContent = `${who.name} · ${refLabel(session.from, session.to)} · ${Math.floor(who.seconds / 60)}:${String(who.seconds % 60).padStart(2, '0')}`;
+  $('resultWho').textContent = `${who.name} · ${refLabel(r.from, r.to)} · ${time}`;
   $('resultScore').textContent = Math.round(r.score);
   const count = (m) => r.marks.filter((x) => x === m).length;
   $('cntCorrect').textContent = count('correct');
@@ -415,14 +468,14 @@ function showBoard() {
   const ranked = session.reciters.filter((r) => r.result)
     .sort((a, b) => b.result.score - a.result.score || a.seconds - b.seconds);
   const medals = ['🥇', '🥈', '🥉'];
-  $('boardPassage').textContent = refLabel(session.from, session.to) + (session.hide ? ' · from memory' : '');
+  $('boardPassage').textContent = (session.free ? 'From anywhere' : refLabel(session.from, session.to)) + (session.hide ? ' · from memory' : '');
   $('board').replaceChildren(...ranked.map((r, k) => {
     const li = document.createElement('li');
     const t = `${Math.floor(r.seconds / 60)}:${String(r.seconds % 60).padStart(2, '0')}`;
     li.innerHTML = `<span class="place"></span><span class="who"></span><span class="sub"></span><span class="pts"></span>`;
     li.querySelector('.place').textContent = medals[k] || k + 1;
     li.querySelector('.who').textContent = r.name;
-    li.querySelector('.sub').textContent = `${r.result.correct}/${r.result.total} words · ${t}`;
+    li.querySelector('.sub').textContent = `${session.free ? refLabel(r.result.from, r.result.to) + ' · ' : ''}${r.result.correct}/${r.result.total} words · ${t}`;
     li.querySelector('.pts').textContent = `${Math.round(r.result.score)}%`;
     return li;
   }));
@@ -589,6 +642,7 @@ navigator.mediaDevices?.addEventListener?.('devicechange', fillInputs);
 document.addEventListener('keydown', (e) => {
   if (e.target.matches('input, select') && e.key !== 'Escape') return;
   if (!$('settings').hidden && e.key !== 'Escape') return;
+  if (!$('news').hidden) return; // the What's new / announcements dialog handles its own keys
   switch (e.key) {
     case ' ': if (screenName === 'ready') { e.preventDefault(); beginTurn(); } break;
     case 'Enter': if (screenName === 'turn') endTurn(); break;
@@ -634,3 +688,6 @@ $('btnFull').onclick = () => (document.fullscreenElement ? document.exitFullscre
 $('blank').addEventListener('click', () => $('blank').classList.remove('on'));
 try { await navigator.wakeLock?.request('screen'); } catch { /* not supported */ }
 screen('home');
+
+// Updates, announcements and What's new (home screen only).
+initNews({ $, store, onHome: () => screenName === 'home' });
