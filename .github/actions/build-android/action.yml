@@ -32,7 +32,9 @@ runs:
       with:
         distribution: temurin
         java-version: '21'
-    - uses: android-actions/setup-android@v3
+    - name: Android SDK licenses (the runner already has the SDK; Gradle fetches what it is missing)
+      shell: bash
+      run: yes | "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager --licenses > /dev/null || true
     - name: Web bundle
       shell: bash
       run: |
