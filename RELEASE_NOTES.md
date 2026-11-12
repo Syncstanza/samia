@@ -1,6 +1,13 @@
-**Sami'a 1.4**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.5**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.4
+## 🆕 New in 1.5
+
+- 🌐 **Web version.** Open Sami'a in any browser, or set it up as a kiosk app on Chromebooks: https://syncstanza.github.io/samia/ . Always the latest version, and it works offline after the first visit.
+- 🎙 **Every turn starts with A'udhu billah and Bismillah.** The turn begins once Sami'a hears you, so you know the microphone works (a "Start anyway" button is there if it doesn't pick it up).
+- 🎯 The reciter's name is centred on the turn screen.
+
+## Earlier: 1.4
+
 
 - 📱 **Android.** Sami'a now runs on Android phones and tablets (Android 7 or newer): same speech engine, same screens, in landscape. Open this page on the phone, tap `Samia-1.4.0.apk`, and allow installs from your browser when asked. Updates open the new download for you to tap.
 - ✨ **The intro plays on every PC**, including ones where Windows has animation effects turned off.

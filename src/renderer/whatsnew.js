@@ -3,6 +3,16 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 7,
+    version: '1.5.0',
+    title: 'Sami\'a 1.5',
+    items: [
+      'Sami\'a now has a web version: open it in a browser, or add it as a kiosk app on Chromebooks. Always the latest version, and it keeps working offline after the first visit.',
+      'Every turn now starts with A\'udhu billah and Bismillah. The turn begins once Sami\'a hears you, so you know the microphone is working. There is a "Start anyway" button if it does not pick it up.',
+      'The reciter\'s name is now centred at the top of the turn screen.',
+    ],
+  },
+  {
     id: 6,
     version: '1.4.0',
     title: 'Sami\'a 1.4',
