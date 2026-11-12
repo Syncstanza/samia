@@ -312,6 +312,9 @@ i.m-skipped { background: #ff6b6b; } i.m-unread { background: #3b4a4e; }
 #board .pts { font-weight: 700; font-size: 3.2vh; }
 #board .sub { color: var(--muted); font-size: 1.8vh; }
 
+/* Setup: hifz from a chosen passage or from anywhere */
+.choice .small-btn.on { background: rgba(34, 227, 210, 0.16); border-color: var(--accent, #22e3d2); color: var(--text, #fff); }
+
 /* Competition: choose judged (school / masjid) or friends */
 #modesBack { margin-top: 2.5vh; }
 #modesCompetition .mode { max-width: 34vw; }

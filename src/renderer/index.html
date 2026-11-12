@@ -91,10 +91,15 @@
       <h2 id="setupTitle">Competition</h2>
       <div class="field">
         <span class="label">Passage</span>
-        <div class="row">
+        <div class="row choice" id="pickWhere" hidden>
+          <button class="ghost small-btn on" id="wherePassage">Choose a passage</button>
+          <button class="ghost small-btn" id="whereAnywhere">Recite anywhere</button>
+        </div>
+        <p class="hint" id="anywhereInfo" hidden>Start from any ayah you like. Sami'a finds where you are, shows each word only once you've said it, and scores what you recited, from where you started to where you stopped.</p>
+        <div class="row" id="pickSurahRow">
           <select id="pickSurah"></select>
         </div>
-        <div class="row">
+        <div class="row" id="pickRangeRow">
           <span class="small">From ayah</span> <input id="pickFrom" type="number" min="1" value="1">
           <span class="small">to</span> <input id="pickTo" type="number" min="1" value="1">
           <button class="ghost small-btn" id="pickWhole">Whole surah</button>
@@ -119,7 +124,7 @@
       <h2 id="readyName"></h2>
       <p id="readyPassage"></p>
       <button id="readyGo">Start reciting</button>
-      <p class="hint">Or press <kbd>Space</kbd>. When finished, press <kbd>Enter</kbd> or <b>Done</b> (it also ends by itself after the last word).</p>
+      <p class="hint">Or press <kbd>Space</kbd>. When finished, press <kbd>Enter</kbd> or <b>Done</b> <span id="readyEnds">(it also ends by itself after the last word)</span>.</p>
     </section>
 
     <!-- During a turn -->
