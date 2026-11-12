@@ -16,3 +16,4 @@ tests/audio/*
 .venv/
 __pycache__/
 .scratch/
+web-dist/

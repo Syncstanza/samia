@@ -12,6 +12,12 @@
 
 It tests, builds the Windows installer, the portable `.exe`, the Linux AppImage and the Android APK, attaches a `.sha256` checksum for each, and publishes the release as the latest. Copies already installed see **Update available** within 6 hours (or straight away with Settings → Check for updates).
 
+## Web (browser / Chromebook)
+- `tools/web-build.mjs --base /samia/` builds `web-dist/`: the same app as a website (service worker keeps it for offline use, installable as a PWA). The **Web** workflow builds it on every push to `dev` (kept as the `web-dist` artifact) and publishes it to GitHub Pages **only from `main`**. One-time: repo Settings → Pages → Source: **GitHub Actions**.
+- Address once live: `https://syncstanza.github.io/samia/`. It is always the latest version; there is nothing to install or update.
+- **Chromebook kiosk (Google Admin):** Devices → Chrome → Apps & extensions → Kiosk (or Users & browsers → Add by URL → *Web kiosk app*), add the address above. Then allow the microphone for it: Devices → Chrome → Settings → *Audio input allowed* on, and *URLs that can access audio capture devices without prompt* (`AudioCaptureAllowedUrls`) = `https://syncstanza.github.io`.
+- Speed: the web build runs the speech engine on a single thread (GitHub Pages can't send the headers that allow more). It starts in about 2 s on a 4x slowed CPU in tests; real low-end Chromebooks are untested.
+
 ## Android
 - The APK is the same web app in an Android shell (`android-app/`, bundle built by `tools/android-www.mjs`). Every push to `dev` builds it, starts it on an emulator and waits for the speech engine to report ready (`tools/android-smoke.sh`); only then is the `dev-android` draft published. It installs next to the real app as "Sami'a DEV".
 - **Signing key.** Android only installs an update over an app signed with the same key, so releases are signed with the project key, kept in two repository secrets (Settings → Secrets and variables → Actions): `SAMIA_KEYSTORE_B64` (the key file, base64) and `SAMIA_KEYSTORE_PASSWORD`. The Release workflow refuses to build the APK without them. **Keep a backup of the key file: if it is lost, everyone has to uninstall and reinstall once.** Never commit it.
