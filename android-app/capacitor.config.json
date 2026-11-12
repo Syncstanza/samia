@@ -9,5 +9,11 @@
     "androidScheme": "https"
   },
   "backgroundColor": "#0b1215",
-  "loggingBehavior": "production"
+  "loggingBehavior": "production",
+  "plugins": {
+    "SystemBars": {
+      "hidden": true,
+      "style": "DARK"
+    }
+  }
 }
