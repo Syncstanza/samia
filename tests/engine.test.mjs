@@ -117,3 +117,12 @@ test('a repeated word: the first one is not skipped when the model runs ahead', 
   assert.ok(tr.pos - firstEnd < 6, `jumped ${tr.pos - firstEnd} letters past the first عليهم`);
   assert.equal(r.ayah.index, i);
 });
+
+test('tracker: a short surah (al-Kawthar) is found from cold during its first ayah, not its last', () => {
+  const tr = new Tracker(ix);
+  const first = ix.letters.slice(ix.ayahStart[ix.indexOf(108, 1)], ix.ayahStart[ix.indexOf(108, 2)]);
+  let res;
+  for (let p = 0; p < first.length + 4; p += 4) res = tr.push(first.slice(p, p + 4));
+  assert.equal(res.ayah.surah, 108);
+  assert.ok(res.ayah.ayah <= 2);
+});
