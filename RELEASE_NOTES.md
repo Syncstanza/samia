@@ -1,6 +1,10 @@
-**Sami'a 1.5.6**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.5.7**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.5.6
+## 🆕 New in 1.5.7
+
+- 🎙 **Free recite waits for the opening.** The A'udhu billah / Bismillah screen now stays until you have finished Bismillah, instead of disappearing while you are still saying it.
+
+## Earlier: 1.5.6
 
 - 🎙 **Free recite starts with A'udhu billah and Bismillah**, like every turn: Sami'a hears you right away and finds your place faster.
 - 📖 **A reminder to recite slowly.** The opening screen shows Al-Muzzammil 73:4 with its translation, in free recite and the hifz test.

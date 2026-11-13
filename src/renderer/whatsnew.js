@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 14,
+    version: '1.5.7',
+    title: 'Sami\'a 1.5.7',
+    items: [
+      'Free recite now waits while you say A\'udhu billah and Bismillah. The opening screen stays until you have finished Bismillah, then Sami\'a starts looking for your place.',
+    ],
+  },
+  {
     id: 13,
     version: '1.5.6',
     title: 'Sami\'a 1.5.6',
