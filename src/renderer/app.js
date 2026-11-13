@@ -54,6 +54,7 @@ function screen(name) {
   $('scoreboard').hidden = name !== 'board';
   $('judgedDone').hidden = name !== 'judgedDone';
   $('turnBar').hidden = name !== 'turn';
+  if (name !== 'turn' && name !== 'free' && document.body.classList.contains('gate-on')) openGate(false);
   document.body.classList.toggle('hide-text', name === 'turn' && !!session?.hide);
   $('turnInfo').textContent = name === 'turn' && session ? session.reciters[session.i].name : '';
 }
@@ -202,7 +203,8 @@ worker.onmessage = ({ data: m }) => {
     if (m.ms) { speedAvg = speedAvg ? 0.8 * speedAvg + 0.2 * m.ms : m.ms; $('speed').textContent = `Listening speed: ${Math.round(speedAvg)} ms per check (under about 450 is smooth)`; }
     recorder.addUpdate(m);
     if ((screenName === 'free' || (screenName === 'turn' && session?.free)) && shown < 0) $('idleHeard').textContent = m.heard ? m.heard.split(' ').slice(-6).join(' ') : $('idleHeard').textContent;
-    if (m.heard && gatePending && screenName === 'turn') {
+    if (gatePending && screenName === 'free' && m.ayah) passGate(); // free recite: the place was found, no need to wait
+    if (m.heard && gatePending && (screenName === 'turn' || screenName === 'free')) {
       gateHeard = (gateHeard + ' ' + m.heard).slice(-400);
       const o = heardOpening(gateHeard);
       if (o.taawwudh || o.basmala) passGate();
@@ -247,6 +249,7 @@ function startFree() {
   $('idleHeard').textContent = '';
   document.body.classList.add('idle-on');
   worker.postMessage({ type: 'reset' });
+  openGate(true); // a'udhu billah / Bismillah first: proves the mic works and gets the listener warmed up
 }
 
 function setStart(ref) {
@@ -353,6 +356,10 @@ let turnStarted = 0, clockTimer = 0, lastSpeechAt = 0, reachedEnd = false, spoke
 let gatePending = false, gateHeard = '';
 let speedAvg = 0;
 function openGate(on) {
+  if (on && !$('gateVerseAr').textContent) {
+    const v = data.ayat.find(([s, a]) => s === 73 && a === 4); // وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا
+    if (v) { $('gateVerseAr').textContent = v[2]; $('gateVerseEn').textContent = v[3]; }
+  }
   gatePending = on;
   gateHeard = '';
   document.body.classList.toggle('gate-on', on);
@@ -361,6 +368,7 @@ function openGate(on) {
 function passGate() {
   if (!gatePending) return;
   openGate(false);
+  if (screenName === 'free') return; // free recite has no clock or turn
   turnStarted = performance.now(); // the clock starts when the reciting does
   lastSpeechAt = performance.now();
   spokeInTurn = false;
