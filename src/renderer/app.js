@@ -203,11 +203,13 @@ worker.onmessage = ({ data: m }) => {
     if (m.ms) { speedAvg = speedAvg ? 0.8 * speedAvg + 0.2 * m.ms : m.ms; $('speed').textContent = `Listening speed: ${Math.round(speedAvg)} ms per check (under about 450 is smooth)`; }
     recorder.addUpdate(m);
     if ((screenName === 'free' || (screenName === 'turn' && session?.free)) && shown < 0) $('idleHeard').textContent = m.heard ? m.heard.split(' ').slice(-6).join(' ') : $('idleHeard').textContent;
-    if (gatePending && screenName === 'free' && m.ayah) passGate(); // free recite: the place was found, no need to wait
     if (m.heard && gatePending && (screenName === 'turn' || screenName === 'free')) {
       gateHeard = (gateHeard + ' ' + m.heard).slice(-400);
       const o = heardOpening(gateHeard);
-      if (o.taawwudh || o.basmala) passGate();
+      if (screenName === 'free') {
+        // Free recite waits for the whole opening (Bismillah is its last words), then a beat for the last word to finish.
+        if (o.basmala && !gateDone) gateDone = setTimeout(passGate, 800);
+      } else if (o.taawwudh || o.basmala) passGate();
     }
     if (m.heard) { $('heard').textContent = m.heard; lastSpeechAt = performance.now(); if (screenName === 'turn' && !gatePending) spokeInTurn = true; }
     if (!following()) return;
@@ -353,7 +355,7 @@ function showReady() {
 
 let turnStarted = 0, clockTimer = 0, lastSpeechAt = 0, reachedEnd = false, spokeInTurn = false;
 // Every turn starts with a'udhu billah / Bismillah: hearing it proves the mic works. Until then the turn hasn't begun.
-let gatePending = false, gateHeard = '';
+let gatePending = false, gateHeard = '', gateDone = 0;
 let speedAvg = 0;
 function openGate(on) {
   if (on && !$('gateVerseAr').textContent) {
@@ -362,13 +364,23 @@ function openGate(on) {
   }
   gatePending = on;
   gateHeard = '';
+  clearTimeout(gateDone); gateDone = 0;
   document.body.classList.toggle('gate-on', on);
   $('openGate').hidden = !on;
 }
 function passGate() {
   if (!gatePending) return;
   openGate(false);
-  if (screenName === 'free') return; // free recite has no clock or turn
+  if (screenName === 'free') {
+    // Free recite has no clock or turn. Start fresh: whatever matched while the opening was being said is not the recitation.
+    shown = -1;
+    for (const id of ['prev', 'current', 'next']) $(id).replaceChildren();
+    $('surahAr').textContent = ''; $('surahEn').textContent = ''; $('juz').textContent = '';
+    $('idleHeard').textContent = '';
+    document.body.classList.add('idle-on');
+    worker.postMessage({ type: 'reset' });
+    return;
+  }
   turnStarted = performance.now(); // the clock starts when the reciting does
   lastSpeechAt = performance.now();
   spokeInTurn = false;
