@@ -285,7 +285,11 @@ body.screen-turn { cursor: default; }
 .gate-en { margin: 0; color: var(--muted); font-size: max(2.2vh, 13px); }
 .gate-en b { color: var(--text); font-weight: 600; }
 .gate-skip { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: max(1.9vh, 12px); padding: 6px; }
-body.screen-turn:not(.gate-on) .gate { display: none; }
+body.screen-turn:not(.gate-on) .gate, body.screen-free:not(.gate-on) .gate { display: none; }
+.gate-verse { display: flex; flex-direction: column; align-items: center; gap: .8vh; padding-bottom: 2vh; border-bottom: 1px solid rgba(34, 227, 210, .18); width: 100%; }
+.gate-verse-ar { margin: 0; font-family: 'Amiri Quran', serif; font-size: max(4.2vh, 22px); line-height: 1.8; color: var(--text); }
+.gate-verse-en { margin: 0; color: var(--text); font-size: max(2.2vh, 13px); font-style: italic; }
+.gate-verse-ref { margin: 0; color: var(--muted); font-size: max(1.8vh, 11px); letter-spacing: .04em; }
 
 /* hifz test: words stay hidden until recited */
 body.hide-text .ayah.current .ar .w:not(.done):not(.now) { color: transparent; text-shadow: none; border-bottom: 2px dotted rgba(143,163,168,.35); }
