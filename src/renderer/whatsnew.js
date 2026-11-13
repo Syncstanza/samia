@@ -3,6 +3,15 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 13,
+    version: '1.5.6',
+    title: 'Sami\'a 1.5.6',
+    items: [
+      'Free recite now starts like every turn: say A\'udhu billah and Bismillah first. Sami\'a hears you right away and finds your place faster.',
+      'The opening screen shows the ayah "Recite the Qur\'an with measured recitation" (Al-Muzzammil 73:4) with its translation, as a reminder to recite slowly and clearly. It appears in free recite and in the hifz test.',
+    ],
+  },
+  {
     id: 12,
     version: '1.5.5',
     title: 'Sami\'a 1.5.5',
