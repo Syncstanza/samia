@@ -520,3 +520,5 @@ body.tight .ayah.prev, body.tight .ayah.next { visibility: hidden; }
 body.tight .ayah.current { gap: .8vh; padding-top: 0; }
 body.tight .ayah.current .ar { line-height: 1.55; }
 body.tight .ayah.current .tr { line-height: 1.3; }
+
+.ayah.current { justify-content: safe center; }
