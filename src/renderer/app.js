@@ -130,6 +130,14 @@ function fit() {
   // step aside and the whole screen goes to this one ("tight").
   const box = $('current');
   const vh = window.innerHeight / 100;
+  // The content is centred, so when it is too tall it spills out of the top and the bottom alike and scrollHeight
+  // misses the top part: measure from the first child's top to the last child's bottom instead.
+  const fitsBox = () => {
+    const kids = box.children;
+    if (!kids.length) return true;
+    const top = kids[0].getBoundingClientRect().top, bottom = kids[kids.length - 1].getBoundingClientRect().bottom;
+    return bottom - top <= box.clientHeight + 1 && box.scrollHeight <= box.clientHeight + 1;
+  };
   const search = (floorAr, floorTr) => {
     let lo = floorAr, hi = Math.max(8.5 * vh, 44);
     const trFor = (ar) => Math.max(floorTr, Math.min(3.8 * vh, ar * 0.45));
@@ -137,11 +145,11 @@ function fit() {
       const mid = (lo + hi) / 2;
       box.style.setProperty('--ar-size', `${mid}px`);
       box.style.setProperty('--tr-size', `${trFor(mid)}px`);
-      if (box.scrollHeight <= box.clientHeight + 1) lo = mid; else hi = mid;
+      if (fitsBox()) lo = mid; else hi = mid;
     }
     box.style.setProperty('--ar-size', `${lo}px`);
     box.style.setProperty('--tr-size', `${trFor(lo)}px`);
-    return box.scrollHeight <= box.clientHeight + 1;
+    return fitsBox();
   };
   document.body.classList.remove('tight');
   if (search(Math.max(2.2 * vh, 15), Math.max(1.4 * vh, 11))) return;
