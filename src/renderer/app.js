@@ -125,18 +125,28 @@ function fill(el, index, { full }) {
 }
 
 function fit() {
-  // Largest Arabic size that fits the middle area (long ayat get smaller).
+  // Largest Arabic size that fits the middle area (long ayat get smaller). If even the smallest
+  // normal size does not fit (a very long ayah on a short phone screen), the ayat before and after
+  // step aside and the whole screen goes to this one ("tight").
   const box = $('current');
   const vh = window.innerHeight / 100;
-  let lo = Math.max(2.2 * vh, 15), hi = Math.max(8.5 * vh, 44); // the floors only matter on a phone (a long ayah on a short landscape screen)
-  for (let k = 0; k < 9; k++) {
-    const mid = (lo + hi) / 2;
-    box.style.setProperty('--ar-size', `${mid}px`);
-    box.style.setProperty('--tr-size', `${Math.max(1.4 * vh, 11, Math.min(3.2 * vh, mid * 0.4))}px`);
-    if (box.scrollHeight <= box.clientHeight + 1) lo = mid; else hi = mid;
-  }
-  box.style.setProperty('--ar-size', `${lo}px`);
-  box.style.setProperty('--tr-size', `${Math.max(1.4 * vh, 11, Math.min(3.2 * vh, lo * 0.4))}px`);
+  const search = (floorAr, floorTr) => {
+    let lo = floorAr, hi = Math.max(8.5 * vh, 44);
+    const trFor = (ar) => Math.max(floorTr, Math.min(3.2 * vh, ar * 0.4));
+    for (let k = 0; k < 9; k++) {
+      const mid = (lo + hi) / 2;
+      box.style.setProperty('--ar-size', `${mid}px`);
+      box.style.setProperty('--tr-size', `${trFor(mid)}px`);
+      if (box.scrollHeight <= box.clientHeight + 1) lo = mid; else hi = mid;
+    }
+    box.style.setProperty('--ar-size', `${lo}px`);
+    box.style.setProperty('--tr-size', `${trFor(lo)}px`);
+    return box.scrollHeight <= box.clientHeight + 1;
+  };
+  document.body.classList.remove('tight');
+  if (search(Math.max(2.2 * vh, 15), Math.max(1.4 * vh, 11))) return;
+  document.body.classList.add('tight');
+  search(Math.max(1.4 * vh, 11), Math.max(1.2 * vh, 10));
 }
 
 async function render(index, force = false) {

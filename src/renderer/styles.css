@@ -513,3 +513,10 @@ body.book-on footer > span:nth-child(2) { display: none; }
   body.book-on .controls button span { display: none; }
   body.book-on #btnBlank, body.book-on #btnFull { display: none; }
 }
+
+/* a very long ayah on a short screen: it gets the whole area */
+body.tight #flow { grid-template-rows: 0 1fr 0; padding: 0 9vw 6px; }
+body.tight .ayah.prev, body.tight .ayah.next { visibility: hidden; }
+body.tight .ayah.current { gap: .8vh; padding-top: 0; }
+body.tight .ayah.current .ar { line-height: 1.55; }
+body.tight .ayah.current .tr { line-height: 1.3; }
