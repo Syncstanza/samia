@@ -490,3 +490,7 @@ body.no-tr .book-tr { display: none; }
 body.book-on .book-credit { display: inline; }
 body.book-on footer > span { white-space: nowrap; }
 body.book-on footer > span:nth-child(2) { display: none; }
+@media (min-aspect-ratio: 6/5) {
+  body.book-on .book.odd { flex-direction: row-reverse; }
+  .book.odd .book-tr { text-align: right; }
+}
