@@ -263,6 +263,7 @@ function buildPage(page) {
   box.dataset.slots = slots;
   $('bookNo').textContent = arNum(page + 1);
   bookPage = page;
+  $('book').classList.toggle('odd', page % 2 === 0); // page 1 (index 0) is a right-hand page in the mushaf, page 2 a left-hand one
   fitBook();
   requestAnimationFrame(() => { if (bookOn) fitBook(); }); // again once the page has real sizes and fonts
   document.fonts.ready.then(() => { if (bookOn) fitBook(); });
