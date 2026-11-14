@@ -12,7 +12,6 @@ import { normalize } from '/src/engine/normalize.js';
 import { TestRecorder } from './recorder.js';
 import { initNews } from './news.js';
 import { heardOpening } from '/src/engine/opening.js';
-import { PAGE_START } from './pages.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -189,76 +188,129 @@ function light(letter) {
 }
 
 // ------------------------------------------------------------------ book (page) view
-// The page of the mushaf the reciter is on: all its ayat flowing like a printed page,
-// recited words lit, the word being recited glowing, the page turning by itself.
+// The page of the Madinah mushaf the reciter is on, line for line (15 lines), recited words lit,
+// the word being recited glowing, the page turning by itself.
+// Layout: quran.ws/text (CC BY 4.0); text and font: King Fahd Complex.
 var bookOn = false, bookPage = -1; // var: screen() reads it before this point runs
-const pageOf = (index) => { let lo = 0, hi = PAGE_START.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (PAGE_START[mid] <= index) lo = mid; else hi = mid - 1; } return lo; };
+let madani = null, madaniLoading = null;
+function loadMadani() {
+  if (!madaniLoading) {
+    madaniLoading = (async () => {
+      const [m, face] = await Promise.all([
+        fetch('/data/quran/madani.json').then((r) => r.json()),
+        new FontFace('KFGQPC Hafs', "url('/data/quran/UthmanicHafs-v-3.0.ttf')").load(),
+      ]);
+      document.fonts.add(face);
+      madani = m;
+      return m;
+    })().catch((e) => { madaniLoading = null; console.warn('page view: ' + e.message); });
+  }
+  return madaniLoading;
+}
+const bisect = (arr, x) => { let lo = 0, hi = arr.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (arr[mid] <= x) lo = mid; else hi = mid - 1; } return lo; };
+const pageOf = (index) => bisect(madani.pages, madani.ayahStart[index]);
+const endsCache = new Map();
+// Where each word of an ayah ends, in the letters the speech engine matches (the two texts split a few words differently, so scaled).
+function ayahEnds(a) {
+  let e = endsCache.get(a);
+  if (e) return e;
+  const from = madani.ayahStart[a], to = a + 1 < madani.ayahStart.length ? madani.ayahStart[a + 1] : madani.words.length;
+  const lens = [];
+  let sum = 0;
+  for (let w = from; w < to; w++) { sum += normalize(madani.words[w]).length; lens.push(sum); }
+  const total = normalize(ayahParts(a).text).length;
+  e = lens.map((x) => Math.round(x * total / (sum || 1)));
+  endsCache.set(a, e);
+  return e;
+}
 function buildPage(page) {
-  const from = PAGE_START[page], to = page + 1 < PAGE_START.length ? PAGE_START[page + 1] - 1 : data.ayat.length - 1;
+  const M = madani;
+  const from = M.pages[page], to = page + 1 < M.pages.length ? M.pages[page + 1] : M.words.length;
+  const first = bisect(M.lines, from), last = to >= M.words.length ? M.lines.length - 1 : bisect(M.lines, to - 1);
   const box = $('bookText');
   box.replaceChildren();
-  for (let i = from; i <= to; i++) {
-    const p = ayahParts(i);
-    if (p.a === 1) {
+  let slots = 0, a = bisect(M.ayahStart, from);
+  for (let li = first; li <= last; li++) {
+    const wFrom = M.lines[li], wTo = li + 1 < M.lines.length ? M.lines[li + 1] : M.words.length;
+    const sIdx = M.surahStart.indexOf(wFrom);
+    if (sIdx >= 0) {
       const h = document.createElement('div');
-      h.className = 'bk-surah';
-      h.textContent = data.surahs[p.s - 1].name;
-      box.append(h);
-      if (p.bismillah) { const b = document.createElement('div'); b.className = 'bk-bsm'; b.textContent = data.bismillah; box.append(b); }
+      h.className = 'bk-head';
+      h.textContent = data.surahs[sIdx].name;
+      box.append(h); slots++;
+      if (M.bsm[sIdx] && sIdx !== 0) { const b = document.createElement('div'); b.className = 'bk-bsm'; b.textContent = data.bismillah; box.append(b); slots++; }
     }
-    const a = document.createElement('span');
-    a.className = 'bk-ayah';
-    a.dataset.i = i;
-    let end = 0;
-    for (const word of p.text.split(' ')) {
-      end += normalize(word).length;
-      const w = document.createElement('span');
-      w.className = 'w';
-      w.dataset.end = end;
-      w.textContent = word;
-      a.append(w, ' ');
+    const line = document.createElement('div');
+    line.className = 'bk-line';
+    for (let w = wFrom; w < wTo; w++) {
+      while (a + 1 < M.ayahStart.length && M.ayahStart[a + 1] <= w) a++;
+      const el = document.createElement('span');
+      el.className = 'w';
+      el.dataset.a = a;
+      el.dataset.end = ayahEnds(a)[w - M.ayahStart[a]];
+      el.textContent = M.words[w];
+      line.append(el);
+      if (w + 1 === (a + 1 < M.ayahStart.length ? M.ayahStart[a + 1] : M.words.length)) {
+        const num = document.createElement('span');
+        num.className = 'num';
+        num.dataset.a = a;
+        num.textContent = '\u06DD' + arNum(data.ayat[a][1]);
+        line.append(num);
+      }
     }
-    const num = document.createElement('span');
-    num.className = 'num';
-    num.textContent = '۝' + arNum(p.a) + ' ';
-    a.append(num);
-    box.append(a);
+    box.append(line); slots++;
   }
+  box.dataset.slots = slots;
   $('bookNo').textContent = arNum(page + 1);
   bookPage = page;
   fitBook();
   requestAnimationFrame(() => { if (bookOn) fitBook(); }); // again once the page has real sizes and fonts
   document.fonts.ready.then(() => { if (bookOn) fitBook(); });
 }
+// Largest type for which every line fits the page width; lines are spread to full width like the printed page.
 function fitBook() {
   const area = $('bookPage'), text = $('bookText');
-  const vh = window.innerHeight / 100;
-  let lo = Math.max(1.8 * vh, 15), hi = Math.max(5.2 * vh, 34);
-  for (let k = 0; k < 9; k++) {
+  const slots = +text.dataset.slots || 15;
+  const cs = getComputedStyle(area);
+  const inner = area.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const rowH = (inner - $('bookNo').offsetHeight - 2) / 15;
+  text.style.height = `${rowH * slots}px`;
+  text.style.setProperty('--row', `${rowH}px`);
+  const lines = [...text.querySelectorAll('.bk-line')];
+  for (const l of lines) l.classList.remove('short');
+  let lo = 10, hi = Math.max(10, rowH * 0.75);
+  const fits = () => lines.every((l) => l.scrollWidth <= l.clientWidth + 1);
+  for (let k = 0; k < 10; k++) {
     const mid = (lo + hi) / 2;
     text.style.fontSize = `${mid}px`;
-    if (text.scrollHeight <= text.clientHeight + 1 && area.scrollWidth <= area.clientWidth + 1) lo = mid; else hi = mid;
+    if (fits()) lo = mid; else hi = mid;
   }
   text.style.fontSize = `${lo}px`;
+  // A line that is much shorter than the page (end of a surah) is centred, not stretched.
+  for (const l of lines) {
+    l.classList.add('measure');
+    const items = [...l.children];
+    const natural = items.reduce((t, c) => t + c.getBoundingClientRect().width, 0) + (items.length - 1) * lo * 0.25;
+    l.classList.remove('measure');
+    if (natural < l.clientWidth * 0.8) l.classList.add('short');
+  }
 }
 async function renderBook(index) {
-  try { await document.fonts.load('40px "Amiri Quran"', 'بسم'); } catch { /* fit again on resize */ }
-  if (!bookOn) return;
+  if (!madani) { await loadMadani(); if (!madani) return; }
+  if (!bookOn || index !== shown) return;
   const page = pageOf(index);
   if (page !== bookPage) buildPage(page);
   // Everything before the current ayah is recited; what comes after is not yet.
-  for (const a of $('bookText').querySelectorAll('.bk-ayah')) {
-    const i = +a.dataset.i;
-    a.classList.toggle('past', i < index);
-    a.classList.toggle('cur', i === index);
-    for (const w of a.querySelectorAll('.w')) w.classList.remove('now', 'done');
+  for (const w of $('bookText').querySelectorAll('.w, .num')) {
+    const a = +w.dataset.a;
+    w.classList.toggle('past', a < index);
+    w.classList.remove('now', 'done');
   }
   $('bookTr').textContent = data.ayat[index][3];
 }
 function lightBook(letter) {
-  const a = $('bookText').querySelector(`.bk-ayah[data-i="${shown}"]`);
-  if (!a) return;
-  const words = a.querySelectorAll('.w');
+  if (!madani) return;
+  const words = $('bookText').querySelectorAll(`.w[data-a="${shown}"]`);
   let now = -1;
   for (let k = 0; k < words.length; k++) {
     const end = +words[k].dataset.end;
