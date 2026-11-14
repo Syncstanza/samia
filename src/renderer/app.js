@@ -128,15 +128,15 @@ function fit() {
   // Largest Arabic size that fits the middle area (long ayat get smaller).
   const box = $('current');
   const vh = window.innerHeight / 100;
-  let lo = Math.max(2.6 * vh, 22), hi = Math.max(8.5 * vh, 44); // the floors only matter on a phone
+  let lo = Math.max(2.2 * vh, 15), hi = Math.max(8.5 * vh, 44); // the floors only matter on a phone (a long ayah on a short landscape screen)
   for (let k = 0; k < 9; k++) {
     const mid = (lo + hi) / 2;
     box.style.setProperty('--ar-size', `${mid}px`);
-    box.style.setProperty('--tr-size', `${Math.max(1.5 * vh, 13, Math.min(3.2 * vh, mid * 0.4))}px`);
+    box.style.setProperty('--tr-size', `${Math.max(1.4 * vh, 11, Math.min(3.2 * vh, mid * 0.4))}px`);
     if (box.scrollHeight <= box.clientHeight + 1) lo = mid; else hi = mid;
   }
   box.style.setProperty('--ar-size', `${lo}px`);
-  box.style.setProperty('--tr-size', `${Math.max(1.5 * vh, 13, Math.min(3.2 * vh, lo * 0.4))}px`);
+  box.style.setProperty('--tr-size', `${Math.max(1.4 * vh, 11, Math.min(3.2 * vh, lo * 0.4))}px`);
 }
 
 async function render(index, force = false) {
@@ -169,8 +169,11 @@ async function render(index, force = false) {
 // Light the words recited so far; the word being recited now glows.
 // letter = how many letters of the ayah have been heard (from the tracker).
 let lit = -1;
+let lastLetter = null;
+const lightNow = () => { if (lastLetter !== null) light(lastLetter); };
 function light(letter) {
   if (letter === undefined || letter === null) return;
+  lastLetter = letter;
   if (bookOn) lightBook(letter);
   const words = $('current').querySelectorAll('.w');
   let now = -1;
@@ -341,7 +344,15 @@ function setBook(on) {
   else fit();
 }
 $('btnBook').onclick = () => setBook(!bookOn);
-window.addEventListener('resize', () => { if (bookOn && bookPage >= 0) fitBook(); });
+// The screen changed size (the phone turned): lay the page, or the current ayah, out again for the new size.
+let resizeTimer = 0;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (bookOn && bookPage >= 0) fitBook();
+    else if (!bookOn && shown >= 0 && following()) render(shown, true).then(() => lightNow());
+  }, 250);
+});
 
 function status(kind, text) {
   const el = $('status');
