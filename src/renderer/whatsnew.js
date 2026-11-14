@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 16,
+    version: '1.6.1',
+    title: 'Sami\'a 1.6.1',
+    items: [
+      'Page view now also shows the first two words of the previous page, opposite the first words of the next page.',
+    ],
+  },
+  {
     id: 15,
     version: '1.6.0',
     title: 'Sami\'a 1.6',

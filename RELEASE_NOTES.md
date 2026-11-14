@@ -1,6 +1,10 @@
-**Sami'a 1.6.0**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.6.1**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.6
+## 🆕 New in 1.6.1
+
+- 📖 **Page view shows the previous page's first two words** too, opposite the next page's.
+
+## Earlier: 1.6
 
 - 📖 **Page view.** In free recite, tap **Page** to see the real Madinah mushaf page, line for line (15 lines). Recited words light up, the word you are on glows, and the page turns by itself. Odd pages are on the right, even pages on the left, with the first two words of the next page at the corner.
 - 📱 **Android: portrait for the page view.** The phone turns upright so the lines are big enough to read; every other screen stays landscape.
