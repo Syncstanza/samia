@@ -262,6 +262,8 @@ function buildPage(page) {
   }
   box.dataset.slots = slots;
   $('bookNo').textContent = arNum(page + 1);
+  // The first two words of the next page, so the reciter can look ahead before turning.
+  $('bookNext').textContent = page + 1 < M.pages.length ? M.words.slice(M.pages[page + 1], M.pages[page + 1] + 2).join(' ') : '';
   bookPage = page;
   $('book').classList.toggle('odd', page % 2 === 0); // page 1 (index 0) is a right-hand page in the mushaf, page 2 a left-hand one
   fitBook();
@@ -274,7 +276,7 @@ function fitBook() {
   const slots = +text.dataset.slots || 15;
   const cs = getComputedStyle(area);
   const inner = area.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-  const rowH = (inner - $('bookNo').offsetHeight - 2) / 15;
+  const rowH = (inner - $('bookNo').parentElement.offsetHeight - 2) / 15;
   text.style.height = `${rowH * slots}px`;
   text.style.setProperty('--row', `${rowH}px`);
   const lines = [...text.querySelectorAll('.bk-line')];
