@@ -132,7 +132,7 @@ function fit() {
   const vh = window.innerHeight / 100;
   const search = (floorAr, floorTr) => {
     let lo = floorAr, hi = Math.max(8.5 * vh, 44);
-    const trFor = (ar) => Math.max(floorTr, Math.min(3.2 * vh, ar * 0.4));
+    const trFor = (ar) => Math.max(floorTr, Math.min(3.8 * vh, ar * 0.45));
     for (let k = 0; k < 9; k++) {
       const mid = (lo + hi) / 2;
       box.style.setProperty('--ar-size', `${mid}px`);
