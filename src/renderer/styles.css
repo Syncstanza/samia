@@ -481,7 +481,8 @@ body.book-on.idle-on .book { visibility: hidden; }
 .book-tr { margin: 0; flex: 0 1 30vw; text-align: left; color: #c9d6d6; font-size: max(2.3vh, 13px); line-height: 1.5; }
 @media (max-aspect-ratio: 6/5) {
   body.book-on .book { flex-direction: column; top: 12vh; }
-  .book-page { height: auto; flex: 1; width: auto; max-width: 100%; }
+  .book-page { height: auto; flex: 0 1 auto; width: min(100%, 58vh); max-width: 100%; }
+  .book-tr { width: 100%; }
   .book-tr { flex: none; text-align: center; font-size: max(1.8vh, 12px); max-height: 14vh; overflow: hidden; }
 }
 body.no-tr .book-tr { display: none; }
@@ -493,4 +494,10 @@ body.book-on footer > span:nth-child(2) { display: none; }
 @media (min-aspect-ratio: 6/5) {
   body.book-on .book.odd { flex-direction: row-reverse; }
   .book.odd .book-tr { text-align: right; }
+}
+@media (max-width: 700px) {
+  body.book-on #surahAr { font-size: 22px; white-space: nowrap; }
+  body.book-on header { flex-wrap: nowrap; }
+  body.book-on .surah-en, body.book-on .juz { font-size: 12px; white-space: nowrap; }
+  body.book-on .book { top: 10vh; }
 }
