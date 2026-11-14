@@ -3,6 +3,15 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 17,
+    version: '1.6.2',
+    title: 'Sami\'a 1.6.2',
+    items: [
+      'Phones: when the screen turns (for example after leaving the page view), the ayah is laid out again for the new size, so it no longer overlaps the ayat around it.',
+      'Long ayat, like al-Baqarah 2:177, now fit on a short landscape phone screen with their whole translation.',
+    ],
+  },
+  {
     id: 16,
     version: '1.6.1',
     title: 'Sami\'a 1.6.1',

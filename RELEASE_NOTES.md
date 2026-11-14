@@ -1,6 +1,11 @@
-**Sami'a 1.6.1**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.6.2**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.6.1
+## 🆕 New in 1.6.2
+
+- 📱 **Phone screen turns fixed.** After the phone turns (for example when leaving the page view), the ayah is laid out again for the new size, so it no longer overlaps the ayat around it.
+- 📖 **Long ayat fit.** Ayat like al-Baqarah 2:177 now fit a short landscape phone screen with their whole translation.
+
+## Earlier: 1.6.1
 
 - 📖 **Page view shows the previous page's first two words** too, opposite the next page's.
 
