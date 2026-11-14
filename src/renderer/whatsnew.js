@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 19,
+    version: '1.6.4',
+    title: 'Sami\'a 1.6.4',
+    items: [
+      'Bigger Arabic and translation for every ayah: the translation now uses the full width of the screen instead of a narrow column, which leaves more room for larger letters. Long ayat like al-Baqarah 2:282 read much better.',
+    ],
+  },
+  {
     id: 18,
     version: '1.6.3',
     title: 'Sami\'a 1.6.3',
