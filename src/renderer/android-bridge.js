@@ -31,6 +31,8 @@
       settings[k] = v;
       try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch { /* storage off */ }
     },
+    // The page (mushaf) view turns the phone to portrait; everything else is landscape.
+    setOrientation: (mode) => { const o = plugin('Orientation'); if (o) o.set({ mode }).catch(() => {}); },
     info: () => ({ version: A.version, dev: /-[a-z]+$/i.test(A.version), canSelfUpdate: false }),
     latestRelease: async () => {
       try {

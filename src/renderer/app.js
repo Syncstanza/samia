@@ -326,6 +326,7 @@ function lightBook(letter) {
 function setBook(on) {
   bookOn = on && screenName === 'free';
   document.body.classList.toggle('book-on', bookOn);
+  if (window.api && window.api.setOrientation) window.api.setOrientation(bookOn ? 'portrait' : 'landscape'); // Android phone: the page is tall
   $('btnBook').setAttribute('aria-pressed', String(bookOn));
   try { localStorage.setItem('samia.book', bookOn ? '1' : ''); } catch { /* not saved */ }
   if (bookOn) { bookPage = -1; if (shown >= 0) { renderBook(shown); } }

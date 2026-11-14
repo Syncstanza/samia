@@ -9,6 +9,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(OrientationPlugin.class);
         super.onCreate(savedInstanceState);
         // Draw edge to edge and never shrink for the system bars: when the status bar is pulled down it now
         // slides over the app instead of pushing it aside and showing dark bars.
