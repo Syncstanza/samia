@@ -362,10 +362,8 @@ worker.onmessage = ({ data: m }) => {
     if (m.heard && gatePending && (screenName === 'turn' || screenName === 'free')) {
       gateHeard = (gateHeard + ' ' + m.heard).slice(-400);
       const o = heardOpening(gateHeard);
-      if (screenName === 'free') {
-        // Free recite waits for the whole opening (Bismillah is its last words), then a beat for the last word to finish.
-        if (o.basmala && !gateDone) gateDone = setTimeout(passGate, 800);
-      } else if (o.taawwudh || o.basmala) passGate();
+      // The whole opening first (Bismillah is its last words), then a beat for the last word to finish.
+      if (o.basmala && !gateDone) gateDone = setTimeout(passGate, 800);
     }
     if (m.heard) { $('heard').textContent = m.heard; lastSpeechAt = performance.now(); if (screenName === 'turn' && !gatePending) spokeInTurn = true; }
     if (!following()) return;
@@ -537,6 +535,14 @@ function passGate() {
     document.body.classList.add('idle-on');
     worker.postMessage({ type: 'reset' });
     return;
+  }
+  if (session?.free) {
+    // Recite anywhere: whatever matched while the opening was being said is not the recitation.
+    shown = -1;
+    for (const id of ['prev', 'current', 'next']) $(id).replaceChildren();
+    $('surahAr').textContent = ''; $('surahEn').textContent = ''; $('juz').textContent = '';
+    document.body.classList.add('idle-on');
+    worker.postMessage({ type: 'turnStart', free: true });
   }
   turnStarted = performance.now(); // the clock starts when the reciting does
   lastSpeechAt = performance.now();
