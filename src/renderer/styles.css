@@ -498,6 +498,15 @@ body.book-on footer > span:nth-child(2) { display: none; }
 @media (max-width: 700px) {
   body.book-on #surahAr { font-size: 22px; white-space: nowrap; }
   body.book-on header { flex-wrap: nowrap; }
-  body.book-on .surah-en, body.book-on .juz { font-size: 12px; white-space: nowrap; }
-  body.book-on .book { top: 10vh; }
+  body.book-on .surah-en { font-size: 12px; white-space: nowrap; }
+  body.book-on .juz { display: none; }
+  body.book-on .pill { padding: 4px 10px; font-size: 12px; }
+  body.book-on .book { top: 10vh; bottom: calc(2vh + 70px); }
+  body.book-on .book-page { width: min(100%, calc((100vh - 10vh - 2vh - 70px - 120px) * 0.74)); }
+  body.book-on .book-tr { flex: 1 1 auto; min-height: 0; max-height: none; width: 100%; overflow-y: auto; font-size: 14px; line-height: 1.4; }
+  /* one row of icons that fits a phone: no labels, and no Blank / full-screen (the app is already full screen) */
+  body.book-on .controls { max-width: 96vw; gap: 2px; padding: 6px 8px; }
+  body.book-on .controls button { min-width: 38px; padding: 0 6px; }
+  body.book-on .controls button span { display: none; }
+  body.book-on #btnBlank, body.book-on #btnFull { display: none; }
 }
