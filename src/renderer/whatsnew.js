@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 18,
+    version: '1.6.3',
+    title: 'Sami\'a 1.6.3',
+    items: [
+      'Very long ayat (like al-Baqarah 2:187) now fit on a phone in landscape: when one does not fit with the ayat before and after it, those step aside and the whole ayah and its translation use the screen.',
+    ],
+  },
+  {
     id: 17,
     version: '1.6.2',
     title: 'Sami\'a 1.6.2',
