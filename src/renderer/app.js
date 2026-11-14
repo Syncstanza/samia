@@ -307,7 +307,12 @@ async function renderBook(index) {
     w.classList.toggle('past', a < index);
     w.classList.remove('now', 'done');
   }
-  $('bookTr').textContent = data.ayat[index][3];
+  const tr = $('bookTr');
+  tr.textContent = data.ayat[index][3];
+  // Long translations get smaller type so the whole meaning stays in view (it still scrolls if even that is not enough).
+  tr.style.fontSize = '';
+  const base = parseFloat(getComputedStyle(tr).fontSize);
+  for (let px = base; px > 11 && tr.scrollHeight > tr.clientHeight + 1; px -= 0.5) tr.style.fontSize = `${px}px`;
 }
 function lightBook(letter) {
   if (!madani) return;
