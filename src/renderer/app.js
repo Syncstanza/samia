@@ -264,6 +264,7 @@ function buildPage(page) {
   $('bookNo').textContent = arNum(page + 1);
   // The first two words of the next page, so the reciter can look ahead before turning.
   $('bookNext').textContent = page + 1 < M.pages.length ? M.words.slice(M.pages[page + 1], M.pages[page + 1] + 2).join(' ') : '';
+  $('bookPrev').textContent = page > 0 ? M.words.slice(M.pages[page - 1], M.pages[page - 1] + 2).join(' ') : '';
   bookPage = page;
   $('book').classList.toggle('odd', page % 2 === 0); // page 1 (index 0) is a right-hand page in the mushaf, page 2 a left-hand one
   fitBook();
