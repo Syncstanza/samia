@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 20,
+    version: '1.6.5',
+    title: 'Sami\'a 1.6.5',
+    items: [
+      'Fixed the translation being cut off at the bottom after the bigger text in 1.6.4. The Arabic and the whole translation now always fit together.',
+    ],
+  },
+  {
     id: 19,
     version: '1.6.4',
     title: 'Sami\'a 1.6.4',

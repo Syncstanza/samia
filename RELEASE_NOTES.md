@@ -1,6 +1,10 @@
-**Sami'a 1.6.4**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.6.5**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.6.4
+## 🆕 New in 1.6.5
+
+- 🛠 **Translation no longer cut off.** Fixed the translation being clipped at the bottom after the bigger text in 1.6.4; the Arabic and the whole translation now always fit together.
+
+## Earlier: 1.6.4
 
 - 🔠 **Bigger Arabic and translation for every ayah.** The translation now uses the full width of the screen instead of a narrow column, leaving more room for larger letters. Long ayat like al-Baqarah 2:282 read much better.
 
