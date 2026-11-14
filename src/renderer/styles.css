@@ -453,3 +453,27 @@ i.m-skipped { background: #ff6b6b; } i.m-unread { background: #3b4a4e; }
 .home.cards-hold .mode { opacity: 0; }
 .home.intro-in .mode { animation: modeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) calc(var(--i, 0) * 0.15s) backwards; }
 @keyframes modeIn { from { opacity: 0; transform: translateY(34px) scale(0.96); } }
+
+/* ---- book (page) view: free recite only ---- */
+.controls .only-free { display: none; }
+body.screen-free .controls .only-free { display: inline-flex; }
+.controls .only-free[aria-pressed="true"] { color: var(--gold); }
+.book { display: none; }
+body.book-on .book { display: flex; flex-direction: column; align-items: center; gap: 1.2vh; position: absolute; left: 0; right: 0; top: 11vh; bottom: 9vh; padding: 0 4vw; min-height: 0; }
+body.book-on #flow { visibility: hidden; }
+body.book-on.idle-on .book { visibility: hidden; }
+.book-page {
+  flex: 1; min-height: 0; width: min(100%, 120vh); display: flex; flex-direction: column;
+  background: rgba(10, 20, 22, 0.78); border: 1px solid rgba(245, 184, 46, 0.28); border-radius: 14px;
+  padding: 2vh 3vh 1vh; box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+}
+.book-text { flex: 1; min-height: 0; overflow: hidden; font-family: "Amiri Quran", serif; line-height: 1.85; text-align: justify; text-align-last: center; color: var(--text); }
+.book-text .bk-surah { text-align: center; font-size: 1.15em; color: var(--gold); border: 1px solid rgba(245, 184, 46, 0.4); border-radius: 8px; margin: .3em 0; padding: 0 .4em; }
+.book-text .bk-bsm { text-align: center; color: var(--text); margin-bottom: .2em; }
+.book-text .bk-ayah .w { color: rgba(244, 239, 226, 0.42); transition: color 260ms ease, text-shadow 260ms ease; }
+.book-text .bk-ayah.past .w, .book-text .bk-ayah .w.done { color: var(--text); }
+.book-text .bk-ayah .w.now { color: #ffe3a1; text-shadow: 0 0 22px rgba(255, 194, 58, 0.7), 0 0 4px rgba(255, 194, 58, 0.5); }
+.book-text .num { color: var(--gold); }
+.book-no { text-align: center; color: var(--muted); font-family: "Amiri Quran", serif; font-size: max(2.2vh, 13px); padding-top: .6vh; }
+.book-tr { margin: 0; max-width: 90ch; text-align: center; color: #c9d6d6; font-size: max(1.9vh, 12px); line-height: 1.4; }
+body.no-tr .book-tr { display: none; }
