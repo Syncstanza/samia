@@ -459,7 +459,7 @@ i.m-skipped { background: #ff6b6b; } i.m-unread { background: #3b4a4e; }
 body.screen-free .controls .only-free { display: inline-flex; }
 .controls .only-free[aria-pressed="true"] { color: var(--gold); }
 .book { display: none; }
-body.book-on .book { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 3vw; position: absolute; left: 0; right: 0; top: 13vh; bottom: 4vh; padding: 0 4vw; min-height: 0; }
+body.book-on .book { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 3vw; position: absolute; left: 0; right: 0; top: 13vh; bottom: max(8vh, 48px); padding: 0 4vw; min-height: 0; }
 body.book-on #flow { visibility: hidden; }
 body.book-on.idle-on .book { visibility: hidden; }
 .book-page {
@@ -488,3 +488,5 @@ body.no-tr .book-tr { display: none; }
 
 .book-credit { display: none; }
 body.book-on .book-credit { display: inline; }
+body.book-on footer > span { white-space: nowrap; }
+body.book-on footer > span:nth-child(2) { display: none; }
