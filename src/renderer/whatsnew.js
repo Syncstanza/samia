@@ -3,6 +3,17 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 15,
+    version: '1.6.0',
+    title: 'Sami\'a 1.6',
+    items: [
+      'Page view: in free recite, tap Page to see the real Madinah mushaf page, line for line (15 lines). The words you have recited light up, the word you are on glows, and the page turns by itself. Odd pages sit on the right and even pages on the left, and the first two words of the next page show at the corner.',
+      'On the Android app the page view turns the phone upright (portrait) so the lines are big enough to read; every other screen stays landscape.',
+      'The hifz test now waits for the whole A\'udhu billah and Bismillah before it starts looking for your place.',
+      'The opening screen shows the ayah about reciting slowly (Al-Muzzammil 73:4) with its translation.',
+    ],
+  },
+  {
     id: 14,
     version: '1.5.7',
     title: 'Sami\'a 1.5.7',

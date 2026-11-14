@@ -1,6 +1,15 @@
-**Sami'a 1.5.7**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.6.0**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.5.7
+## 🆕 New in 1.6
+
+- 📖 **Page view.** In free recite, tap **Page** to see the real Madinah mushaf page, line for line (15 lines). Recited words light up, the word you are on glows, and the page turns by itself. Odd pages are on the right, even pages on the left, with the first two words of the next page at the corner.
+- 📱 **Android: portrait for the page view.** The phone turns upright so the lines are big enough to read; every other screen stays landscape.
+- 🧠 **Hifz test waits for A'udhu billah and Bismillah** to finish before it starts looking for your place.
+- 🕋 **Slow-recitation reminder.** The opening screen shows Al-Muzzammil 73:4 with its translation.
+
+> Page layout and font: King Fahd Complex, via quran.ws/text (CC BY 4.0).
+
+## Earlier: 1.5.7
 
 - 🎙 **Free recite waits for the opening.** The A'udhu billah / Bismillah screen now stays until you have finished Bismillah, instead of disappearing while you are still saying it.
 
