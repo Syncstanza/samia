@@ -12,6 +12,7 @@ import { normalize } from '/src/engine/normalize.js';
 import { TestRecorder } from './recorder.js';
 import { initNews } from './news.js';
 import { heardOpening } from '/src/engine/opening.js';
+import { PAGE_START } from './pages.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -55,6 +56,7 @@ function screen(name) {
   $('judgedDone').hidden = name !== 'judgedDone';
   $('turnBar').hidden = name !== 'turn';
   if (name !== 'turn' && name !== 'free' && document.body.classList.contains('gate-on')) openGate(false);
+  if (name !== 'free' && bookOn) setBook(false);
   document.body.classList.toggle('hide-text', name === 'turn' && !!session?.hide);
   $('turnInfo').textContent = name === 'turn' && session ? session.reciters[session.i].name : '';
 }
@@ -149,6 +151,7 @@ async function render(index, force = false) {
   lit = -1;
   fill($('next'), index + 1, { full: false });
   fit();
+  if (bookOn) renderBook(index);
   for (const id of ['prev', 'current', 'next']) {
     const el = $(id);
     el.classList.remove('enter-fwd', 'enter-back', 'fade-in');
@@ -169,6 +172,7 @@ async function render(index, force = false) {
 let lit = -1;
 function light(letter) {
   if (letter === undefined || letter === null) return;
+  if (bookOn) lightBook(letter);
   const words = $('current').querySelectorAll('.w');
   let now = -1;
   for (let k = 0; k < words.length; k++) {
@@ -183,6 +187,99 @@ function light(letter) {
     words[k].classList.toggle('now', k === now);
   }
 }
+
+// ------------------------------------------------------------------ book (page) view
+// The page of the mushaf the reciter is on: all its ayat flowing like a printed page,
+// recited words lit, the word being recited glowing, the page turning by itself.
+var bookOn = false, bookPage = -1; // var: screen() reads it before this point runs
+const pageOf = (index) => { let lo = 0, hi = PAGE_START.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (PAGE_START[mid] <= index) lo = mid; else hi = mid - 1; } return lo; };
+function buildPage(page) {
+  const from = PAGE_START[page], to = page + 1 < PAGE_START.length ? PAGE_START[page + 1] - 1 : data.ayat.length - 1;
+  const box = $('bookText');
+  box.replaceChildren();
+  for (let i = from; i <= to; i++) {
+    const p = ayahParts(i);
+    if (p.a === 1) {
+      const h = document.createElement('div');
+      h.className = 'bk-surah';
+      h.textContent = data.surahs[p.s - 1].name;
+      box.append(h);
+      if (p.bismillah) { const b = document.createElement('div'); b.className = 'bk-bsm'; b.textContent = data.bismillah; box.append(b); }
+    }
+    const a = document.createElement('span');
+    a.className = 'bk-ayah';
+    a.dataset.i = i;
+    let end = 0;
+    for (const word of p.text.split(' ')) {
+      end += normalize(word).length;
+      const w = document.createElement('span');
+      w.className = 'w';
+      w.dataset.end = end;
+      w.textContent = word;
+      a.append(w, ' ');
+    }
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = '۝' + arNum(p.a) + ' ';
+    a.append(num);
+    box.append(a);
+  }
+  $('bookNo').textContent = arNum(page + 1);
+  bookPage = page;
+  fitBook();
+  requestAnimationFrame(() => { if (bookOn) fitBook(); }); // again once the page has real sizes and fonts
+  document.fonts.ready.then(() => { if (bookOn) fitBook(); });
+}
+function fitBook() {
+  const area = $('bookPage'), text = $('bookText');
+  const vh = window.innerHeight / 100;
+  let lo = Math.max(1.8 * vh, 15), hi = Math.max(5.2 * vh, 34);
+  for (let k = 0; k < 9; k++) {
+    const mid = (lo + hi) / 2;
+    text.style.fontSize = `${mid}px`;
+    if (text.scrollHeight <= text.clientHeight + 1 && area.scrollWidth <= area.clientWidth + 1) lo = mid; else hi = mid;
+  }
+  text.style.fontSize = `${lo}px`;
+}
+async function renderBook(index) {
+  try { await document.fonts.load('40px "Amiri Quran"', 'بسم'); } catch { /* fit again on resize */ }
+  if (!bookOn) return;
+  const page = pageOf(index);
+  if (page !== bookPage) buildPage(page);
+  // Everything before the current ayah is recited; what comes after is not yet.
+  for (const a of $('bookText').querySelectorAll('.bk-ayah')) {
+    const i = +a.dataset.i;
+    a.classList.toggle('past', i < index);
+    a.classList.toggle('cur', i === index);
+    for (const w of a.querySelectorAll('.w')) w.classList.remove('now', 'done');
+  }
+  $('bookTr').textContent = data.ayat[index][3];
+}
+function lightBook(letter) {
+  const a = $('bookText').querySelector(`.bk-ayah[data-i="${shown}"]`);
+  if (!a) return;
+  const words = a.querySelectorAll('.w');
+  let now = -1;
+  for (let k = 0; k < words.length; k++) {
+    const end = +words[k].dataset.end;
+    const start = k ? +words[k - 1].dataset.end : 0;
+    if (letter > start + Math.min(2, end - start - 1)) now = k;
+  }
+  for (let k = 0; k < words.length; k++) {
+    words[k].classList.toggle('done', k < now);
+    words[k].classList.toggle('now', k === now);
+  }
+}
+function setBook(on) {
+  bookOn = on && screenName === 'free';
+  document.body.classList.toggle('book-on', bookOn);
+  $('btnBook').setAttribute('aria-pressed', String(bookOn));
+  try { localStorage.setItem('samia.book', bookOn ? '1' : ''); } catch { /* not saved */ }
+  if (bookOn) { bookPage = -1; if (shown >= 0) { renderBook(shown); } }
+  else fit();
+}
+$('btnBook').onclick = () => setBook(!bookOn);
+window.addEventListener('resize', () => { if (bookOn && bookPage >= 0) fitBook(); });
 
 function status(kind, text) {
   const el = $('status');
@@ -251,6 +348,7 @@ function startFree() {
   $('idleHeard').textContent = '';
   document.body.classList.add('idle-on');
   worker.postMessage({ type: 'reset' });
+  try { if (localStorage.getItem('samia.book')) setBook(true); } catch { /* default off */ }
   openGate(true); // a'udhu billah / Bismillah first: proves the mic works and gets the listener warmed up
 }
 
