@@ -3,6 +3,14 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 21,
+    version: '1.6.6',
+    title: 'Sami\'a 1.6.6',
+    items: [
+      'Every ayah of the Quran was checked at six screen sizes (from a big monitor down to a small phone in landscape): the whole ayah and its translation fit on screen. A small built-in test now repeats that check after future changes.',
+    ],
+  },
+  {
     id: 20,
     version: '1.6.5',
     title: 'Sami\'a 1.6.5',
