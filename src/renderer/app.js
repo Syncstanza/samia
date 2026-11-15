@@ -152,10 +152,11 @@ function fit() {
     return fitsBox();
   };
   document.body.classList.remove('tight');
-  if (search(Math.max(2.2 * vh, 15), Math.max(1.4 * vh, 11))) return;
+  if (search(Math.max(2.2 * vh, 15), Math.max(1.4 * vh, 11))) return (lastFit = true);
   document.body.classList.add('tight');
-  search(Math.max(1.4 * vh, 11), Math.max(1.2 * vh, 10));
+  return (lastFit = search(Math.max(1.4 * vh, 11), Math.max(1.2 * vh, 10)));
 }
+let lastFit = true;
 
 async function render(index, force = false) {
   if ((index === shown && !force) || index < 0) return;
@@ -383,6 +384,7 @@ worker.onmessage = ({ data: m }) => {
   if (m.type === 'ready') {
     asrReady = m.asr;
     window.dispatchEvent(new CustomEvent('samia-ready', { detail: { asr: m.asr } })); // the Android build test waits for this
+    if (params.has('fitcheck')) return fitCheck();
     if (params.has('demo')) { startFree(); return runDemo(params.get('demo')); }
     if (params.get('start')) { startFree(); setStart(params.get('start')); }
     listen(); // the mic meter works even without the model
@@ -439,6 +441,15 @@ function startFree() {
   worker.postMessage({ type: 'reset' });
   try { if (localStorage.getItem('samia.book')) setBook(true); } catch { /* default off */ }
   openGate(true); // a'udhu billah / Bismillah first: proves the mic works and gets the listener warmed up
+}
+
+// Test hook (?fitcheck): lay out every ayah at this window size and report the ones that do not fit.
+async function fitCheck() {
+  startFree();
+  passGate();
+  const bad = [];
+  for (let i = 0; i < data.ayat.length; i++) { await render(i, true); if (!lastFit) bad.push(`${data.ayat[i][0]}:${data.ayat[i][1]}`); }
+  console.log('FITCHECK ' + window.innerWidth + 'x' + window.innerHeight + ' bad=' + bad.length + ' ' + bad.slice(0, 25).join(','));
 }
 
 function setStart(ref) {
