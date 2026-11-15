@@ -3,6 +3,15 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 22,
+    version: '1.6.7',
+    title: 'Sami\'a 1.6.7',
+    items: [
+      'Tajweed colours: turn them on in Settings. The rules are coloured on the main screen and on the page view (ghunnah, ikhfa, iqlab, qalqalah, madd and more), with a colour key in Settings.',
+      'Long ayat refit after the opening card closes, so the translation is never cut off.',
+    ],
+  },
+  {
     id: 21,
     version: '1.6.6',
     title: 'Sami\'a 1.6.6',

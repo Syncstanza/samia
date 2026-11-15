@@ -522,3 +522,25 @@ body.tight .ayah.current .ar { line-height: 1.55; }
 body.tight .ayah.current .tr { line-height: 1.3; }
 
 .ayah.current { justify-content: safe center; }
+
+/* ---- tajweed colours ---- */
+body.tajweed .tj-ghunnah, body.tajweed .tj-idghaam_ghunnah, body.tajweed .tj-idghaam_shafawi { color: #4ade80; }
+body.tajweed .tj-ikhfa, body.tajweed .tj-ikhfa_shafawi { color: #f472b6; }
+body.tajweed .tj-iqlab { color: #818cf8; }
+body.tajweed .tj-qalqalah { color: #22d3ee; }
+body.tajweed .tj-madd_2, body.tajweed .tj-madd_246 { color: #fdba74; }
+body.tajweed .tj-madd_muttasil, body.tajweed .tj-madd_munfasil { color: #f87171; }
+body.tajweed .tj-madd_6 { color: #ff4d6d; }
+body.tajweed .tj-idghaam_no_ghunnah, body.tajweed .tj-idghaam_mutajanisayn, body.tajweed .tj-idghaam_mutaqaribayn { color: #94a3b8; }
+body.tajweed .tj-hamzat_wasl, body.tajweed .tj-lam_shamsiyyah, body.tajweed .tj-silent { color: #7f8f93; }
+/* words not yet recited stay dim; the rest are bright */
+body.tajweed .ayah.current .ar .w:not(.done):not(.now) .tj { opacity: .55; }
+body.tajweed .book-text .w:not(.done):not(.past):not(.now) .tj { opacity: .55; }
+body.hide-text .ayah.current .ar .w:not(.done):not(.now) .tj { color: transparent !important; }
+.tj { font-style: normal; transition: opacity 260ms ease; }
+.tj-key { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin: 6px 0 10px; font-size: 13px; color: var(--muted); }
+.tj-key small { grid-column: 1 / -1; opacity: .7; }
+.tj-key .tj { color: var(--c, #fff); }
+body .tj-key .tj-ghunnah { color: #4ade80; } body .tj-key .tj-ikhfa { color: #f472b6; } body .tj-key .tj-iqlab { color: #818cf8; }
+body .tj-key .tj-qalqalah { color: #22d3ee; } body .tj-key .tj-madd_2 { color: #fdba74; } body .tj-key .tj-madd_muttasil { color: #f87171; }
+body .tj-key .tj-madd_6 { color: #ff4d6d; } body .tj-key .tj-idghaam_no_ghunnah { color: #94a3b8; } body .tj-key .tj-silent { color: #7f8f93; }

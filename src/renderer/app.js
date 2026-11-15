@@ -8,6 +8,7 @@
 //   ?start=2:142      free recite: start following from here
 
 import { startCapture, listInputs, micError } from './capture.js';
+import { loadTajweed, ruleMap, paintWord, baseCount, tajweedReady } from './tajweed.js';
 import { normalize } from '/src/engine/normalize.js';
 import { TestRecorder } from './recorder.js';
 import { initNews } from './news.js';
@@ -100,12 +101,16 @@ function fill(el, index, { full }) {
     // One span per word, each knowing where it ends (in matching letters),
     // so words light up as the reciter reaches them.
     let end = 0;
+    const whole = data.ayat[index][2];
+    const rules = tajweedOn && tajweedReady() ? ruleMap(index, whole, whole, 'T') : null;
+    let base = rules ? baseCount(p.bismillah ? whole.split(' ').slice(0, 4).join(' ') : '') : 0;
     for (const word of p.text.split(' ')) {
       end += normalize(word).length;
       const w = document.createElement('span');
       w.className = 'w';
       w.dataset.end = end;
-      w.textContent = word;
+      paintWord(w, word, rules, base);
+      if (rules) base += baseCount(word);
       ar.append(w, ' ');
     }
   } else {
@@ -169,6 +174,7 @@ async function render(index, force = false) {
   lit = -1;
   fill($('next'), index + 1, { full: false });
   fit();
+  setTimeout(() => { if (index === shown && !bookOn) fit(); }, 650); // once the entrance animation and any reflow have settled
   if (bookOn) renderBook(index);
   for (const id of ['prev', 'current', 'next']) {
     const el = $(id);
@@ -213,6 +219,7 @@ function light(letter) {
 // The page of the Madinah mushaf the reciter is on, line for line (15 lines), recited words lit,
 // the word being recited glowing, the page turning by itself.
 // Layout: quran.ws/text (CC BY 4.0); text and font: King Fahd Complex.
+var tajweedOn = false;
 var bookOn = false, bookPage = -1; // var: screen() reads it before this point runs
 let madani = null, madaniLoading = null;
 function loadMadani() {
@@ -252,6 +259,12 @@ function buildPage(page) {
   const box = $('bookText');
   box.replaceChildren();
   let slots = 0, a = bisect(M.ayahStart, from);
+  const ayahRules = (i) => {
+    if (!tajweedOn || !tajweedReady()) return null;
+    const f = M.ayahStart[i], t = i + 1 < M.ayahStart.length ? M.ayahStart[i + 1] : M.words.length;
+    return ruleMap(i, M.words.slice(f, t).join(' '), data.ayat[i][2], 'M');
+  };
+  let rulesA = null, rulesFor = -1, baseA = 0;
   for (let li = first; li <= last; li++) {
     const wFrom = M.lines[li], wTo = li + 1 < M.lines.length ? M.lines[li + 1] : M.words.length;
     const sIdx = M.surahStart.indexOf(wFrom);
@@ -270,7 +283,12 @@ function buildPage(page) {
       el.className = 'w';
       el.dataset.a = a;
       el.dataset.end = ayahEnds(a)[w - M.ayahStart[a]];
-      el.textContent = M.words[w];
+      if (rulesFor !== a) { // first word seen of this ayah on the page: its rules, and the letters before it
+        rulesFor = a; rulesA = ayahRules(a);
+        baseA = rulesA ? baseCount(M.words.slice(M.ayahStart[a], w).join(' ')) : 0;
+      }
+      paintWord(el, M.words[w], rulesA, baseA);
+      if (rulesA) baseA += baseCount(M.words[w]);
       line.append(el);
       if (w + 1 === (a + 1 < M.ayahStart.length ? M.ayahStart[a + 1] : M.words.length)) {
         const num = document.createElement('span');
@@ -447,6 +465,7 @@ function startFree() {
 async function fitCheck() {
   startFree();
   passGate();
+  if (params.has('tj')) await setTajweed(true, true);
   const bad = [];
   for (let i = 0; i < data.ayat.length; i++) { await render(i, true); if (!lastFit) bad.push(`${data.ayat[i][0]}:${data.ayat[i][1]}`); }
   console.log('FITCHECK ' + window.innerWidth + 'x' + window.innerHeight + ' bad=' + bad.length + ' ' + bad.slice(0, 25).join(','));
@@ -565,6 +584,8 @@ function openGate(on) {
   clearTimeout(gateDone); gateDone = 0;
   document.body.classList.toggle('gate-on', on);
   $('openGate').hidden = !on;
+  // The ayat are measured while the card covers them; measure again once it has moved.
+  for (const ms of [60, 700]) setTimeout(() => shown >= 0 && !bookOn && fit(), ms);
 }
 function passGate() {
   if (!gatePending) return;
@@ -884,6 +905,22 @@ async function fillInputs() {
 }
 navigator.mediaDevices?.addEventListener?.('devicechange', fillInputs);
 
+// Tajweed colours on or off; the rules load the first time they are wanted.
+async function setTajweed(on, quiet) {
+  tajweedOn = on;
+  $('tajweed').checked = on;
+  document.body.classList.toggle('tajweed', on);
+  $('tajweedKey').hidden = !on;
+  if (!quiet) store.set('tajweed', on);
+  if (!on) { if (shown >= 0) refreshAyah(); return; }
+  await loadTajweed();
+  if (tajweedOn && shown >= 0) refreshAyah();
+}
+function refreshAyah() {
+  if (bookOn) { bookPage = -1; renderBook(shown); }
+  else { render(shown, true).then(lightNow); }
+}
+
 (function setupSettings() {
   $('cleanup').checked = store.get('cleanup', false);
   $('showTr').checked = store.get('showTr', true);
@@ -891,6 +928,8 @@ navigator.mediaDevices?.addEventListener?.('devicechange', fillInputs);
   // Switching the input takes effect straight away, so the meter shows it.
   $('input').onchange = () => { store.set('input', $('input').value); listen(); };
   $('cleanup').onchange = () => { store.set('cleanup', $('cleanup').checked); listen(); };
+  setTajweed(store.get('tajweed', false), true);
+  $('tajweed').onchange = () => setTajweed($('tajweed').checked);
   $('showTr').onchange = () => { store.set('showTr', $('showTr').checked); document.body.classList.toggle('no-tr', !$('showTr').checked); };
   $('apply').onclick = closeSettings;
   $('saveTest').onclick = () => { recorder.save(); $('saveTest').textContent = 'Saved to your Downloads folder'; setTimeout(() => { $('saveTest').textContent = 'Save test recording (last 2 min)'; }, 4000); };
@@ -917,6 +956,20 @@ document.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('resize', () => shown >= 0 && fit());
+// The middle area also changes size without a window resize (the opening card closing, the keyboard, tajweed
+// toggled): refit whenever its box changes size.
+if (window.ResizeObserver) {
+  let lastBox = '', raf = 0;
+  new ResizeObserver(() => {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const b = $('current'), key = b.clientWidth + 'x' + b.clientHeight;
+      if (key === lastBox || shown < 0 || bookOn) return;
+      lastBox = key;
+      fit();
+    });
+  }).observe($('current'));
+}
 // The Arabic font arrives after the first ayah may already be drawn: re-fit then.
 document.fonts?.addEventListener?.('loadingdone', () => shown >= 0 && fit());
 document.fonts?.ready.then(() => shown >= 0 && fit());
