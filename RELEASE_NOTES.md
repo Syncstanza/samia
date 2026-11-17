@@ -1,6 +1,11 @@
-**Sami'a 1.6.7**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
+**Sami'a 1.6.8**: Quran karaoke for masjids, schools and friends. Recite, and the words light up on the big screen as you reach them. Free, and works offline.
 
-## 🆕 New in 1.6.7
+## 🆕 New in 1.6.8
+
+- ⚡ **Smoother highlighting.** While you recite, only the words that changed are updated on screen (main view and page view), so long ayat stay light on phones and Chromebooks.
+- 📏 **Measured, not guessed.** Ready to listen in about 3 s even on a 4x slower CPU; each listening step uses about half of its time budget.
+
+## Earlier: 1.6.7
 
 - 🎨 **Tajweed colours.** Turn them on in Settings: ghunnah, ikhfa, iqlab, qalqalah, madd and more are coloured on the main screen and on the page view, with a colour key in Settings. Rule data: cpfair/quran-tajweed (CC BY 4.0).
 - 🛠 **Translation never cut off.** Long ayat now refit when the opening card closes.

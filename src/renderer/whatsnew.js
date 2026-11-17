@@ -3,6 +3,15 @@
 // the top with the next id (see docs/RELEASING.md).
 export const WHATS_NEW = [
   {
+    id: 23,
+    version: '1.6.8',
+    title: 'Sami\'a 1.6.8',
+    items: [
+      'Smoother highlighting: as you recite, only the words that changed are updated on the screen (main view and page view), instead of every word each time, so long ayat stay light on phones and Chromebooks.',
+      'Speed was measured: Sami\'a is ready to listen in about 3 seconds even on a slow computer, and each listening step takes about half of the time it is allowed.',
+    ],
+  },
+  {
     id: 22,
     version: '1.6.7',
     title: 'Sami\'a 1.6.7',

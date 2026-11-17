@@ -208,8 +208,10 @@ function light(letter) {
     if (letter > start + Math.min(2, end - start - 1)) now = k;
   }
   if (now === lit) return;
+  // Only the words between the old and the new position change.
+  const from = Math.max(0, Math.min(lit, now)), to = Math.min(words.length - 1, Math.max(lit, now));
   lit = now;
-  for (let k = 0; k < words.length; k++) {
+  for (let k = from; k <= to; k++) {
     words[k].classList.toggle('done', k < now);
     words[k].classList.toggle('now', k === now);
   }
@@ -258,6 +260,7 @@ function buildPage(page) {
   const first = bisect(M.lines, from), last = to >= M.words.length ? M.lines.length - 1 : bisect(M.lines, to - 1);
   const box = $('bookText');
   box.replaceChildren();
+  litBook = -1;
   let slots = 0, a = bisect(M.ayahStart, from);
   const ayahRules = (i) => {
     if (!tajweedOn || !tajweedReady()) return null;
@@ -350,6 +353,7 @@ async function renderBook(index) {
     w.classList.toggle('past', a < index);
     w.classList.remove('now', 'done');
   }
+  litBook = -1;
   const tr = $('bookTr');
   tr.textContent = data.ayat[index][3];
   // Long translations get smaller type so the whole meaning stays in view (it still scrolls if even that is not enough).
@@ -357,6 +361,7 @@ async function renderBook(index) {
   const base = parseFloat(getComputedStyle(tr).fontSize);
   for (let px = base; px > 11 && tr.scrollHeight > tr.clientHeight + 1; px -= 0.5) tr.style.fontSize = `${px}px`;
 }
+var litBook = -1; // the lit word on the page; -1 = none (reset whenever the page's classes are cleared)
 function lightBook(letter) {
   if (!madani) return;
   const words = $('bookText').querySelectorAll(`.w[data-a="${shown}"]`);
@@ -366,7 +371,10 @@ function lightBook(letter) {
     const start = k ? +words[k - 1].dataset.end : 0;
     if (letter > start + Math.min(2, end - start - 1)) now = k;
   }
-  for (let k = 0; k < words.length; k++) {
+  if (now === litBook) return;
+  const from = Math.max(0, Math.min(litBook, now)), to = Math.min(words.length - 1, Math.max(litBook, now));
+  litBook = now;
+  for (let k = from; k <= to; k++) {
     words[k].classList.toggle('done', k < now);
     words[k].classList.toggle('now', k === now);
   }
