@@ -224,7 +224,7 @@ body.screen-result header, body.screen-board header, body.screen-checking header
 .tagline { margin: 0 0 3vh; color: var(--muted); font-size: max(2.3vh, 12px); }
 .modes { display: flex; gap: 2vw; }
 .mode {
-  width: min(24vw, 360px); min-height: 22vh; padding: 3vh 2vw; border-radius: 22px; text-align: left;
+  width: min(21vw, 330px); min-height: 22vh; padding: 3vh 2vw; border-radius: 22px; text-align: left;
   display: flex; flex-direction: column; gap: 1.2vh; align-items: flex-start;
   background: rgba(15, 29, 34, 0.9); border: 1px solid rgba(34, 227, 210, 0.18); color: var(--text);
   font-weight: 400; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
@@ -544,3 +544,17 @@ body.hide-text .ayah.current .ar .w:not(.done):not(.now) .tj { color: transparen
 body .tj-key .tj-ghunnah { color: #4ade80; } body .tj-key .tj-ikhfa { color: #f472b6; } body .tj-key .tj-iqlab { color: #818cf8; }
 body .tj-key .tj-qalqalah { color: #22d3ee; } body .tj-key .tj-madd_2 { color: #fdba74; } body .tj-key .tj-madd_muttasil { color: #f87171; }
 body .tj-key .tj-madd_6 { color: #ff4d6d; } body .tj-key .tj-idghaam_no_ghunnah { color: #94a3b8; } body .tj-key .tj-silent { color: #7f8f93; }
+
+/* ---------- listen ---------- */
+.controls .only-listen { display: none; }
+body.screen-listen .controls .only-listen { display: inline-flex; }
+#btnPlay svg { width: 24px; height: 24px; fill: currentColor; }
+#btnPlay .pause { display: none; }
+#btnPlay[aria-pressed="true"] .play { display: none; }
+#btnPlay[aria-pressed="true"] .pause { display: block; }
+#btnPlay { color: var(--gold); }
+body.screen-listen footer .mic { visibility: hidden; }
+body.screen-listen #flow { cursor: pointer; }
+.listen-error { color: #ff8a80; }
+@media (max-width: 700px) { #repeatLabel { font-size: 13px; } }
+@media (max-width: 700px) { .turn-info { font-size: 12px; max-width: 34vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }

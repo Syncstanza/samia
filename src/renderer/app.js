@@ -9,6 +9,7 @@
 
 import { startCapture, listInputs, micError } from './capture.js';
 import { loadTajweed, ruleMap, paintWord, baseCount, tajweedReady } from './tajweed.js';
+import { API, EVERYAYAH, everyAyahChapter, parseReciters, parseChapterAudio, timingsFromSegments, timingsFromLetters, wordAt, letterForWord } from './listen-core.js';
 import { normalize } from '/src/engine/normalize.js';
 import { TestRecorder } from './recorder.js';
 import { initNews } from './news.js';
@@ -44,10 +45,16 @@ let session = null; // turns: {mode: 'judged'|'friends'|'hifz', free, from, to, 
 const scored = () => session && session.mode !== 'judged';
 
 // ------------------------------------------------------------------ screens
-const SCREENS = ['home', 'free', 'setup', 'ready', 'turn', 'checking', 'result', 'board', 'judgedDone'];
+const SCREENS = ['home', 'free', 'listen', 'listenSetup', 'setup', 'ready', 'turn', 'checking', 'result', 'board', 'judgedDone'];
 function screen(name) {
+  const screenName0 = screenName;
   screenName = name;
   for (const s of SCREENS) document.body.classList.toggle('screen-' + s, s === name);
+  const wasListening = screenName0 === 'listen' || screenName0 === 'listenSetup';
+  document.body.classList.toggle('screen-free', name === 'free' || name === 'listen'); // Listen is drawn like free recite
+  $('listenSetup').hidden = name !== 'listenSetup';
+  if (name !== 'listen') stopListen();
+  if (wasListening && name !== 'listen' && name !== 'listenSetup') { for (const id of ['prev', 'current', 'next']) $(id).replaceChildren(); shown = -1; }
   $('setup').hidden = name !== 'setup';
   $('ready').hidden = name !== 'ready';
   $('checking').hidden = name !== 'checking';
@@ -56,7 +63,7 @@ function screen(name) {
   $('judgedDone').hidden = name !== 'judgedDone';
   $('turnBar').hidden = name !== 'turn';
   if (name !== 'turn' && name !== 'free' && document.body.classList.contains('gate-on')) openGate(false);
-  if (name !== 'free' && bookOn) setBook(false);
+  if (name !== 'free' && name !== 'listen' && bookOn) setBook(false);
   document.body.classList.toggle('hide-text', name === 'turn' && !!session?.hide);
   $('turnInfo').textContent = name === 'turn' && session ? session.reciters[session.i].name : '';
 }
@@ -380,7 +387,7 @@ function lightBook(letter) {
   }
 }
 function setBook(on) {
-  bookOn = on && screenName === 'free';
+  bookOn = on && (screenName === 'free' || screenName === 'listen');
   document.body.classList.toggle('book-on', bookOn);
   if (window.api && window.api.setOrientation) window.api.setOrientation(bookOn ? 'portrait' : 'landscape'); // Android phone: the page is tall
   $('btnBook').setAttribute('aria-pressed', String(bookOn));
@@ -789,11 +796,217 @@ for (const b of document.querySelectorAll('.mode')) {
   b.onclick = () => {
     const m = b.dataset.mode;
     if (m === 'free') startFree();
+    else if (m === 'listen') openListenSetup();
     else if (m === 'competition') showModes('competition');
     else openSetup(m);
   };
 }
 $('modesBack').onclick = () => showModes('main');
+
+
+// ------------------------------------------------------------------ listen to a reciter
+// Ayah by ayah recordings from the Quran.com audio service; the words light up from the recording's word
+// timings (or spread over the ayah by letters when it has none). The microphone and the speech model rest meanwhile.
+let listenReciters = null;
+const chapterCache = new Map(); // `${reciter}:${surah}` → Map(verse_key → {url, segments})
+let L = null; // the session: {rid, name, last, i, files, audio, timings, ends, k, raf, speed, repeat, left, playing}
+const SPEEDS = [0.75, 1, 1.25, 1.5];
+const REPEATS = [0, 2, 3, 5];
+
+async function getJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+function lsError(msg) { $('lsError').textContent = msg || ''; $('lsError').hidden = !msg; $('lsError').classList.toggle('listen-error', !!msg); }
+
+async function openListenSetup() {
+  const sel = $('lsSurah');
+  if (!sel.options.length) {
+    for (const s of data.surahs) sel.append(new Option(`${s.n}. ${s.translit} — ${s.name} (${s.ayahs} ayat)`, s.n));
+    sel.onchange = () => { $('lsFrom').value = 1; };
+  }
+  const last = store.get('listen', {});
+  sel.value = last.surah || 1;
+  $('lsFrom').value = last.from || 1;
+  lsError('');
+  screen('listenSetup');
+  const r = $('lsReciter');
+  const fillReciters = (list) => {
+    const keep = r.value;
+    r.replaceChildren();
+    if (list.length) {
+      const g = document.createElement('optgroup');
+      g.label = 'Quran.com (words follow the recitation exactly)';
+      for (const x of list) g.append(new Option(x.name + (x.style ? ` (${x.style})` : ''), x.id));
+      r.append(g);
+    }
+    const g2 = document.createElement('optgroup');
+    g2.label = list.length ? 'Backup source (words follow approximately)' : 'Reciters';
+    for (const x of EVERYAYAH) g2.append(new Option(x.name, x.id));
+    r.append(g2);
+    r.value = last.reciter || (list.length ? '' : keep);
+    if (!r.value) r.selectedIndex = 0; // the first Quran.com reciter once the list has arrived
+  };
+  if (!r.options.length) {
+    fillReciters([]);
+    getJson(`${API}/resources/recitations`).then((j) => { const list = parseReciters(j); if (list.length) fillReciters(list); }).catch(() => { /* the backup list stays */ });
+  } else if (last.reciter) r.value = last.reciter;
+  $('lsStart').focus();
+}
+
+async function chapterAudio(rid, surah) {
+  const key = `${rid}:${surah}`;
+  if (chapterCache.has(key)) return chapterCache.get(key);
+  if (String(rid).startsWith('ea:')) return everyAyahChapter(String(rid).slice(3), surah, data.surahs[surah - 1].ayahs);
+  const files = new Map();
+  for (let page = 1; page <= 20; page++) {
+    const j = await getJson(`${API}/recitations/${rid}/by_chapter/${surah}?fields=url,verse_key,segments&per_page=50&page=${page}`);
+    for (const [k, v] of parseChapterAudio(j)) files.set(k, v);
+    const next = j.pagination && j.pagination.next_page;
+    if (!next) break;
+  }
+  if (!files.size) throw new Error('no recordings');
+  chapterCache.set(key, files);
+  return files;
+}
+
+async function startListen() {
+  const rid = $('lsReciter').value, surah = +$('lsSurah').value;
+  const meta = data.surahs[surah - 1];
+  const from = Math.max(1, Math.min(meta.ayahs, Math.floor(+$('lsFrom').value) || 1));
+  const startIndex = data.ayat.findIndex(([s, a]) => s === surah && a === from);
+  if (startIndex < 0) return;
+  const name = $('lsReciter').selectedOptions[0].textContent;
+  lsError('');
+  $('lsStart').disabled = true;
+  $('lsStart').textContent = 'Loading…';
+  let files;
+  try { files = await chapterAudio(rid, surah); }
+  catch (e) {
+    $('lsStart').disabled = false; $('lsStart').textContent = 'Play';
+    return lsError(navigator.onLine === false ? 'No internet connection. Listening needs to be online.' : 'Could not load this recitation right now. Check your connection, or try another reciter.');
+  }
+  $('lsStart').disabled = false; $('lsStart').textContent = 'Play';
+  store.set('listen', { reciter: rid, surah, from });
+  screen('listen');
+  document.body.classList.remove('idle-on');
+  if (capture) { capture.stop(); capture = null; } // the microphone is not needed while listening
+  const lastIndex = startIndex + (meta.ayahs - from);
+  L = { rid, name, files, first: startIndex, last: lastIndex, i: startIndex, audio: new Audio(), speed: L?.speed || 1, repeat: L?.repeat || 0, left: 0, playing: false, token: 0 };
+  L.audio.preload = 'auto';
+  L.audio.addEventListener('ended', onListenEnded);
+  L.audio.addEventListener('error', () => { if (L && L.audio.src) listenFailed(); });
+  syncListenUi();
+  wake();
+  playAyah(startIndex);
+}
+
+function listenFailed() {
+  if (!L) return;
+  L.playing = false; cancelAnimationFrame(L.raf); syncListenUi();
+  status('manual', 'Offline?');
+  $('turnInfo').textContent = 'Could not play this recording. Check your connection.';
+}
+
+async function playAyah(i) {
+  if (!L || i < L.first || i > L.last) return;
+  const token = ++L.token;
+  cancelAnimationFrame(L.raf);
+  L.i = i;
+  const [s, a] = data.ayat[i];
+  const file = L.files.get(`${s}:${a}`);
+  await render(i, true);
+  if (!L || token !== L.token) return;
+  lightReset();
+  if (!file) return listenStep(1, true); // no recording for this ayah: on to the next
+  L.audio.src = file.url;
+  L.audio.playbackRate = L.speed;
+  L.left = L.repeat;
+  // The words as drawn, and when each one is recited.
+  const ends = [...$('current').querySelectorAll('.w')].map((w) => +w.dataset.end);
+  L.ends = ends;
+  L.k = -2;
+  L.timings = timingsFromSegments(file.segments, ends.length);
+  L.fromSegments = !!L.timings;
+  try { await L.audio.play(); L.playing = true; } catch (e) { L.playing = false; }
+  syncListenUi();
+  const next = L.files.get(listenKey(i + 1));
+  if (next) { const pre = new Audio(); pre.preload = 'auto'; pre.src = next.url; L.pre = pre; } // warm the next ayah
+  tickListen(token);
+}
+const listenKey = (i) => (i < data.ayat.length ? `${data.ayat[i][0]}:${data.ayat[i][1]}` : '');
+
+function lightReset() { lit = -1; lastLetter = null; litBook = -1; }
+
+function tickListen(token) {
+  if (!L || token !== L.token) return;
+  const au = L.audio;
+  if (!L.timings && au.duration > 0 && isFinite(au.duration)) L.timings = timingsFromLetters(L.ends, au.duration * 1000);
+  if (L.timings && !au.paused) {
+    const k = wordAt(L.timings, au.currentTime * 1000);
+    if (k !== L.k) { L.k = k; light(letterForWord(L.ends, k)); }
+  }
+  L.raf = requestAnimationFrame(() => tickListen(token));
+}
+
+function onListenEnded() {
+  if (!L) return;
+  if (L.left > 0) { L.left--; L.audio.currentTime = 0; L.k = -2; lightReset(); render(L.i, true).then(() => L && L.audio.play().catch(() => {})); return; }
+  if (L.i >= L.last) { // end of the surah
+    L.playing = false; cancelAnimationFrame(L.raf); light(1e6); syncListenUi();
+    $('turnInfo').textContent = `${L.name} · finished`;
+    return;
+  }
+  playAyah(L.i + 1);
+}
+
+function listenStep(d, auto) {
+  if (!L) return;
+  const i = Math.max(L.first, Math.min(L.last, L.i + d));
+  if (i === L.i && !auto) return;
+  if (i === L.i) return onListenEnded();
+  const wasPlaying = L.playing || auto;
+  playAyah(i).then(() => { if (!wasPlaying && L) { L.audio.pause(); L.playing = false; syncListenUi(); } });
+}
+
+function listenToggle() {
+  if (!L) return;
+  if (L.audio.paused) {
+    if (L.i >= L.last && L.audio.ended) return playAyah(L.first);
+    L.audio.play().then(() => { L.playing = true; syncListenUi(); }).catch(() => {});
+  } else { L.audio.pause(); L.playing = false; syncListenUi(); }
+}
+
+function syncListenUi() {
+  if (!L) return;
+  $('btnPlay').setAttribute('aria-pressed', String(L.playing));
+  $('speedLabel').textContent = `${L.speed}×`;
+  $('repeatLabel').textContent = L.repeat ? `Repeat ×${L.repeat + 1}` : 'Repeat: off';
+  const n = L.i - L.first + 1, total = L.last - L.first + 1;
+  $('turnInfo').textContent = `${L.name} · ${n} of ${total}`;
+  status(L.playing ? 'following' : 'manual', L.playing ? 'Playing' : 'Paused');
+}
+
+function stopListen() {
+  if (!L) return;
+  const leaving = L;
+  L = null;
+  cancelAnimationFrame(leaving.raf);
+  leaving.token = -1;
+  leaving.audio.pause();
+  leaving.audio.removeAttribute('src');
+  leaving.audio.load();
+  if (leaving.pre) leaving.pre.removeAttribute('src');
+  listen(); // the microphone comes back
+}
+
+$('btnPlay').onclick = listenToggle;
+$('btnSpeed').onclick = () => { if (!L) return; L.speed = SPEEDS[(SPEEDS.indexOf(L.speed) + 1) % SPEEDS.length]; L.audio.playbackRate = L.speed; syncListenUi(); };
+$('btnRepeat').onclick = () => { if (!L) return; L.repeat = REPEATS[(REPEATS.indexOf(L.repeat) + 1) % REPEATS.length]; L.left = L.repeat; syncListenUi(); };
+$('lsStart').onclick = startListen;
+$('lsCancel').onclick = goHome;
+$('flow').addEventListener('click', () => { if (screenName === 'listen') listenToggle(); });
 
 // ------------------------------------------------------------------ microphone
 async function listen() {
@@ -949,10 +1162,10 @@ document.addEventListener('keydown', (e) => {
   if (!$('settings').hidden && e.key !== 'Escape') return;
   if (!$('news').hidden) return; // the What's new / announcements dialog handles its own keys
   switch (e.key) {
-    case ' ': if (screenName === 'ready') { e.preventDefault(); beginTurn(); } break;
+    case ' ': if (screenName === 'ready') { e.preventDefault(); beginTurn(); } else if (screenName === 'listen') { e.preventDefault(); listenToggle(); } break;
     case 'Enter': if (screenName === 'turn') endTurn(); break;
-    case 'ArrowRight': case 'PageDown': if (following()) worker.postMessage({ type: 'next' }); break; // most clickers send these
-    case 'ArrowLeft': case 'PageUp': if (following()) worker.postMessage({ type: 'prev' }); break;
+    case 'ArrowRight': case 'PageDown': if (screenName === 'listen') listenStep(1); else if (following()) worker.postMessage({ type: 'next' }); break; // most clickers send these
+    case 'ArrowLeft': case 'PageUp': if (screenName === 'listen') listenStep(-1); else if (following()) worker.postMessage({ type: 'prev' }); break;
     case 'm': case 'M': setMuted(!muted); break;
     case 'h': case 'H': goHome(); break;
     case 'S': if (e.ctrlKey && e.shiftKey) { recorder.save(); break; } openSettings(); break;
@@ -998,8 +1211,8 @@ window.addEventListener('touchstart', wake);
 
 const post = (type) => () => worker.postMessage({ type });
 $('btnHome').onclick = goHome;
-$('btnPrev').onclick = post('prev');
-$('btnNext').onclick = post('next');
+$('btnPrev').onclick = () => (screenName === 'listen' ? listenStep(-1) : post('prev')());
+$('btnNext').onclick = () => (screenName === 'listen' ? listenStep(1) : post('next')());
 $('btnMute').onclick = () => setMuted(!muted);
 $('btnBlank').onclick = () => $('blank').classList.toggle('on');
 $('btnSettings').onclick = openSettings;
