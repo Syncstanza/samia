@@ -9,7 +9,7 @@
 
 import { startCapture, listInputs, micError } from './capture.js';
 import { loadTajweed, ruleMap, paintWord, baseCount, tajweedReady } from './tajweed.js';
-import { API, EVERYAYAH, everyAyahChapter, parseReciters, parseChapterAudio, timingsFromSegments, timingsFromLetters, wordAt, letterForWord } from './listen-core.js';
+import { API, EVERYAYAH, EVERYAYAH_FOR, everyAyahChapter, parseReciters, parseChapterAudio, timingsFromSegments, timingsFromLetters, wordAt, letterForWord } from './listen-core.js';
 import { normalize } from '/src/engine/normalize.js';
 import { TestRecorder } from './recorder.js';
 import { initNews } from './news.js';
@@ -896,17 +896,30 @@ async function startListen() {
   L = { rid, name, files, first: startIndex, last: lastIndex, i: startIndex, audio: new Audio(), speed: L?.speed || 1, repeat: L?.repeat || 0, left: 0, playing: false, token: 0 };
   L.audio.preload = 'auto';
   L.audio.addEventListener('ended', onListenEnded);
-  L.audio.addEventListener('error', () => { if (L && L.audio.src) listenFailed(); });
+  L.audio.addEventListener('error', onListenError);
   syncListenUi();
   wake();
   playAyah(startIndex);
 }
 
+function onListenError() {
+  if (!L || !L.audio.getAttribute('src')) return;
+  const folder = EVERYAYAH_FOR[L.rid];
+  if (folder && !L.fallback) { // the same reciter from the backup source
+    L.fallback = true;
+    const [s0] = data.ayat[L.i];
+    L.files = everyAyahChapter(folder, s0, data.surahs[s0 - 1].ayahs);
+    return playAyah(L.i);
+  }
+  listenFailed();
+}
+
 function listenFailed() {
   if (!L) return;
+  console.warn('listen: could not play', L.audio.currentSrc || L.audio.src, L.audio.error && L.audio.error.code);
   L.playing = false; cancelAnimationFrame(L.raf); syncListenUi();
   status('manual', 'Offline?');
-  $('turnInfo').textContent = 'Could not play this recording. Check your connection.';
+  try { $('turnInfo').textContent = `Could not play this recording (${new URL(L.audio.currentSrc || L.audio.src).host}). Check your connection.`; } catch { $('turnInfo').textContent = 'Could not play this recording. Check your connection.'; }
 }
 
 async function playAyah(i) {

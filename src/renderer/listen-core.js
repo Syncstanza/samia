@@ -107,3 +107,9 @@ export function everyAyahChapter(folder, surah, ayat) {
   for (let a = 1; a <= ayat; a++) m.set(`${surah}:${a}`, { url: everyAyahUrl(folder, surah, a), segments: null });
   return m;
 }
+
+/** The everyayah.com folder that carries the same reciter as a Quran.com recitation id, when there is one. */
+export const EVERYAYAH_FOR = {
+  7: 'Alafasy_128kbps', 6: 'Husary_128kbps', 3: 'Abdurrahmaan_As-Sudais_192kbps',
+  10: 'Saood_ash-Shuraym_128kbps', 2: 'Abdul_Basit_Murattal_192kbps', 9: 'Minshawy_Murattal_128kbps',
+};
