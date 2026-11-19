@@ -942,7 +942,10 @@ async function playAyah(i) {
   L.k = -2;
   L.timings = timingsFromSegments(file.segments, ends.length);
   L.fromSegments = !!L.timings;
-  try { await L.audio.play(); L.playing = true; } catch (e) { L.playing = false; }
+  try { await L.audio.play(); L.playing = true; } catch (e) {
+    L.playing = false;
+    if (e && e.name !== 'AbortError' && e.name !== 'NotAllowedError') { if (token === L.token) onListenError(); return; } // no usable source: try the backup
+  }
   syncListenUi();
   const next = L.files.get(listenKey(i + 1));
   if (next) { const pre = new Audio(); pre.preload = 'auto'; pre.src = next.url; L.pre = pre; } // warm the next ayah
@@ -987,7 +990,9 @@ function listenToggle() {
   if (!L) return;
   if (L.audio.paused) {
     if (L.i >= L.last && L.audio.ended) return playAyah(L.first);
-    L.audio.play().then(() => { L.playing = true; syncListenUi(); }).catch(() => {});
+    // Nothing loaded (the last try failed): start this ayah again from scratch instead of resuming nothing.
+    if (!L.audio.getAttribute('src') || L.audio.error || L.audio.readyState === 0) return playAyah(L.i);
+    L.audio.play().then(() => { L.playing = true; syncListenUi(); }).catch(() => playAyah(L.i));
   } else { L.audio.pause(); L.playing = false; syncListenUi(); }
 }
 
