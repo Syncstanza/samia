@@ -22,7 +22,7 @@ test('server: every file the display loads comes back 200 with isolation headers
       '/vendor/ort/ort.wasm.min.mjs', '/vendor/ort/ort-wasm-simd-threaded.wasm']) {
       const res = await fetch(base + path);
       assert.equal(res.status, 200, path);
-      assert.equal(res.headers.get('cross-origin-embedder-policy'), 'require-corp', path);
+      assert.equal(res.headers.get('cross-origin-embedder-policy'), 'credentialless', path);
       await res.arrayBuffer();
     }
     assert.equal((await fetch(base + '/package.json')).status, 404);

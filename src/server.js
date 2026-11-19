@@ -60,7 +60,7 @@ export function startServer(port = 0, host = '127.0.0.1') {
         'Content-Type': TYPES[extname(file)] || 'application/octet-stream',
         'Content-Length': info.size,
         'Cross-Origin-Opener-Policy': 'same-origin',
-        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Embedder-Policy': 'credentialless',
         'Cross-Origin-Resource-Policy': 'same-origin',
         'Cache-Control': 'no-cache',
       });
