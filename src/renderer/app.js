@@ -1022,6 +1022,12 @@ function stopListen() {
 $('btnPlay').onclick = listenToggle;
 $('btnSpeed').onclick = () => { if (!L) return; L.speed = SPEEDS[(SPEEDS.indexOf(L.speed) + 1) % SPEEDS.length]; L.audio.playbackRate = L.speed; syncListenUi(); };
 $('btnRepeat').onclick = () => { if (!L) return; L.repeat = REPEATS[(REPEATS.indexOf(L.repeat) + 1) % REPEATS.length]; L.left = L.repeat; syncListenUi(); };
+$('btnReciter').onclick = () => { // back to the choices, keeping this surah and ayah as the starting point
+  if (!L) return;
+  const [surah, ayah] = data.ayat[L.i];
+  store.set('listen', { reciter: L.rid, surah, from: ayah });
+  openListenSetup();
+};
 $('lsStart').onclick = startListen;
 $('lsCancel').onclick = goHome;
 $('flow').addEventListener('click', () => { if (screenName === 'listen') listenToggle(); });
