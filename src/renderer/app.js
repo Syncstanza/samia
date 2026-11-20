@@ -896,6 +896,11 @@ async function startListen() {
   L = { rid, name, files, first: startIndex, last: lastIndex, i: startIndex, audio: new Audio(), speed: L?.speed || 1, repeat: L?.repeat || 0, left: 0, playing: false, token: 0 };
   L.audio.preload = 'auto';
   L.audio.addEventListener('ended', onListenEnded);
+  // The buttons and status follow what the audio is really doing (the system can pause it too).
+  L.audio.addEventListener('pause', () => { if (L && !L.audio.ended && L.switching !== true) { L.playing = false; syncListenUi(); } });
+  L.audio.addEventListener('play', () => { if (L) { L.playing = true; syncListenUi(); } });
+  L.audio.addEventListener('waiting', () => { if (L && L.playing) status('manual', 'Loading…'); });
+  L.audio.addEventListener('playing', () => { if (L) syncListenUi(); });
   L.audio.addEventListener('error', onListenError);
   syncListenUi();
   wake();
@@ -933,6 +938,7 @@ async function playAyah(i) {
   if (!L || token !== L.token) return;
   lightReset();
   if (!file) return listenStep(1, true); // no recording for this ayah: on to the next
+  L.switching = true; // swapping the recording is not a pause
   L.audio.src = file.url;
   L.audio.playbackRate = L.speed;
   L.left = L.repeat;
@@ -947,6 +953,7 @@ async function playAyah(i) {
     if (e && e.name !== 'AbortError' && e.name !== 'NotAllowedError') { if (token === L.token) onListenError(); return; } // no usable source: try the backup
   }
   syncListenUi();
+  L.switching = false;
   const next = L.files.get(listenKey(i + 1));
   if (next) { const pre = new Audio(); pre.preload = 'auto'; pre.src = next.url; L.pre = pre; } // warm the next ayah
   tickListen(token);
@@ -959,6 +966,8 @@ function tickListen(token) {
   if (!L || token !== L.token) return;
   const au = L.audio;
   if (!L.timings && au.duration > 0 && isFinite(au.duration)) L.timings = timingsFromLetters(L.ends, au.duration * 1000);
+  // 'ended' is the normal way on; if it was missed, the audio sitting at its end moves on all the same.
+  if (au.ended && L.endedFor !== token) { L.endedFor = token; return onListenEnded(); }
   if (L.timings && !au.paused) {
     const k = wordAt(L.timings, au.currentTime * 1000);
     if (k !== L.k) { L.k = k; light(letterForWord(L.ends, k)); }
@@ -968,6 +977,8 @@ function tickListen(token) {
 
 function onListenEnded() {
   if (!L) return;
+  if (L.handled === L.token + ':' + L.left + ':' + L.i) return; // already handled this end
+  L.handled = L.token + ':' + L.left + ':' + L.i;
   if (L.left > 0) { L.left--; L.audio.currentTime = 0; L.k = -2; lightReset(); render(L.i, true).then(() => L && L.audio.play().catch(() => {})); return; }
   if (L.i >= L.last) { // end of the surah
     L.playing = false; cancelAnimationFrame(L.raf); light(1e6); syncListenUi();
